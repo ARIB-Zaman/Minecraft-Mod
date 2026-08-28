@@ -1,5 +1,6 @@
 package com.jones.watermelonmod;
 
+import com.jones.watermelonmod.item.ModItems;
 import net.fabricmc.api.ModInitializer;
 
 import net.minecraft.resources.Identifier;
@@ -21,6 +22,7 @@ public class WatermelonMod implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
+		ModItems.registerModItems();
 		LOGGER.info("Hello Fabric world!");
 	}
 
