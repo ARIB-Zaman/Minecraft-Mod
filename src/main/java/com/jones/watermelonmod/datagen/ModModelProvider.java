@@ -21,6 +21,6 @@ public class ModModelProvider extends FabricModelProvider {
     @Override
     public void generateItemModels(ItemModelGenerators itemModelGenerators) {
         itemModelGenerators.generateFlatItem(ModItems.FirstItem, ModelTemplates.FLAT_ITEM);
-        itemModelGenerators.generateFlatItem(ModItems.BASIC_GOGGLES, ModelTemplates.FLAT_ITEM);
+        itemModelGenerators.generateFlatItem(ModItems.GREYSCALE_GOGGLES, ModelTemplates.FLAT_ITEM);
     }
 }

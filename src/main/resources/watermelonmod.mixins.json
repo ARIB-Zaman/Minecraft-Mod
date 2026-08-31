@@ -5,6 +5,9 @@
 	"mixins": [
 		"ExampleMixin"
 	],
+	"client": [
+		"client.GameRendererInvoker"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	},
