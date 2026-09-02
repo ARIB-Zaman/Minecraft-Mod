@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "watermelonmod:block/first_block"
+    }
+  }
+}

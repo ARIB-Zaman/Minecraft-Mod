@@ -1,4 +1,7 @@
 {
   "item.watermelonmod.firstitem" : "FirstItem",
-  "item.watermelonmod.greyscale_goggles" : "Greyscale Goggles"
+  "item.watermelonmod.greyscale_goggles" : "Greyscale Goggles",
+
+
+  "block.watermelonmod.first_block" : "First custom block"
 }
