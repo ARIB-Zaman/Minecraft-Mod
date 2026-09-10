@@ -3,6 +3,7 @@ package com.jones.watermelonmod.item;
 import com.jones.watermelonmod.WatermelonMod;
 import com.jones.watermelonmod.item.custom.GreyscaleGogglesItem;
 import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
+import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -19,6 +20,7 @@ public class ModItems {
     public static final Item FirstItem = registerItem("firstitem", Item::new);
     public static final Item GREYSCALE_GOGGLES = registerItem("greyscale_goggles", GreyscaleGogglesItem::new);
     public static final Item EDGE_DETECTION_GOGGLES = registerItem("edge_detection_goggles", EdgeDetectionGogglesItem::new);
+    public static final Item SHARPENING_GOGGLES = registerItem("sharpening_goggles", SharpeningGogglesItem::new);
 
     private static Item registerItem(String name, Function<Item.Properties, Item> function){
         return Registry.register(BuiltInRegistries.ITEM, Identifier.fromNamespaceAndPath(WatermelonMod.MOD_ID, name),
@@ -32,6 +34,7 @@ public class ModItems {
             output.accept(FirstItem);
             output.accept(GREYSCALE_GOGGLES);
             output.accept(EDGE_DETECTION_GOGGLES);
+            output.accept(SHARPENING_GOGGLES);
         });
     }
 }

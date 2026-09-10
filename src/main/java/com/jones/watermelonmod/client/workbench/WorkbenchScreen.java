@@ -3,6 +3,8 @@ package com.jones.watermelonmod.client.workbench;
 import com.jones.watermelonmod.goggles.GogglesParameter;
 import com.jones.watermelonmod.item.custom.GogglesItem;
 import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
+import com.jones.watermelonmod.item.custom.ConvolutionGogglesItem;
+import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
 import com.jones.watermelonmod.menu.WorkbenchMenu;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -55,8 +57,8 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
             return;
         }
 
-        if (goggles instanceof EdgeDetectionGogglesItem) {
-            extractEdgeKernel(graphics, x, y);
+        if (goggles instanceof ConvolutionGogglesItem convolutionGoggles) {
+            extractConvolutionKernel(graphics, x, y, convolutionGoggles instanceof SharpeningGogglesItem);
             return;
         }
 
@@ -76,7 +78,7 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (menu.gogglesStack().getItem() instanceof EdgeDetectionGogglesItem && isOverMatrix(event.x(), event.y())) {
+        if (menu.gogglesStack().getItem() instanceof ConvolutionGogglesItem && isOverMatrix(event.x(), event.y())) {
             int cell = matrixCellAt(event.x(), event.y());
             int button = event.button() == 1 ? WorkbenchMenu.DECREMENT_EDGE_CELL + cell : WorkbenchMenu.INCREMENT_EDGE_CELL + cell;
             if (menu.clickMenuButton(minecraft.player, button)) {
@@ -84,7 +86,7 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
             }
             return true;
         }
-        if (menu.gogglesStack().getItem() instanceof EdgeDetectionGogglesItem && isOverRotateButton(event.x(), event.y())) {
+        if (menu.gogglesStack().getItem() instanceof ConvolutionGogglesItem && isOverRotateButton(event.x(), event.y())) {
             if (menu.clickMenuButton(minecraft.player, WorkbenchMenu.ROTATE_EDGE_MATRIX)) {
                 minecraft.gameMode.handleInventoryButtonClick(menu.containerId, WorkbenchMenu.ROTATE_EDGE_MATRIX);
             }
@@ -125,9 +127,9 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
         }
     }
 
-    private void extractEdgeKernel(GuiGraphicsExtractor graphics, int x, int y) {
-        int[] kernel = menu.edgeKernel();
-        graphics.text(font, Component.translatable("gui.watermelonmod.workbench.edge_kernel"), x + 58, y + 27, 0xFF404040, false);
+    private void extractConvolutionKernel(GuiGraphicsExtractor graphics, int x, int y, boolean sharpening) {
+        int[] kernel = menu.convolutionKernel();
+        graphics.text(font, Component.translatable(sharpening ? "gui.watermelonmod.workbench.sharpen_kernel" : "gui.watermelonmod.workbench.edge_kernel"), x + 58, y + 27, 0xFF404040, false);
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 3; column++) {
                 int cellX = x + 70 + column * 18;
@@ -142,7 +144,7 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
         graphics.fill(x + ROTATE_X + 1, y + ROTATE_Y + 1, x + ROTATE_X + ROTATE_WIDTH - 1, y + ROTATE_Y + ROTATE_HEIGHT - 1, 0xFF82A9C4);
         Component rotate = Component.translatable("gui.watermelonmod.workbench.rotate_kernel");
         graphics.text(font, rotate, x + ROTATE_X + (ROTATE_WIDTH - font.width(rotate)) / 2, y + ROTATE_Y + 4, 0xFF202020, false);
-        graphics.text(font, Component.literal("Left-click: +1    Right-click: -1"), x + 58, y + 109, 0xFF555555, false);
+        graphics.text(font, Component.literal("Left-click: +1    Right-click: -1   Range: -10 to 10"), x + 35, y + 109, 0xFF555555, false);
     }
 
     private boolean isOverRotateButton(double mouseX, double mouseY) {

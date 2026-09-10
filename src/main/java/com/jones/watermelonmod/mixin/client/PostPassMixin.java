@@ -4,6 +4,8 @@ import com.jones.watermelonmod.goggles.GogglesEquipment;
 import com.jones.watermelonmod.goggles.GogglesSettingsService;
 import com.jones.watermelonmod.item.custom.GreyscaleGogglesItem;
 import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
+import com.jones.watermelonmod.item.custom.ConvolutionGogglesItem;
+import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -47,11 +49,30 @@ public abstract class PostPassMixin {
                 .map(stack -> {
                     float[] values = new float[9];
                     for (int index = 0; index < values.length; index++) {
-                        values[index] = GogglesSettingsService.get(stack).value(EdgeDetectionGogglesItem.coefficientKey(index), 0.0F);
+                        values[index] = GogglesSettingsService.get(stack).value(ConvolutionGogglesItem.coefficientKey(index), 0.0F);
                     }
                     return values;
                 }).orElseGet(() -> new float[9]);
         uploadFloats("EdgeConfig", kernel);
+    }
+
+    @Inject(method = "addToFrame", at = @At("HEAD"))
+    private void watermelonmod$updateSharpeningUniform(CallbackInfo ci) {
+        if (!name.contains("watermelonmod:sharpening/0")) return;
+        float[] kernel = Minecraft.getInstance().player == null ? new float[9]
+                : GogglesEquipment.equippedGoggles(Minecraft.getInstance().player)
+                .filter(stack -> stack.getItem() instanceof SharpeningGogglesItem)
+                .map(stack -> convolutionValues(stack, (ConvolutionGogglesItem)stack.getItem()))
+                .orElseGet(() -> new float[9]);
+        uploadFloats("SharpenConfig", kernel);
+    }
+
+    @Unique
+    private float[] convolutionValues(net.minecraft.world.item.ItemStack stack, ConvolutionGogglesItem goggles) {
+        int[] kernel = goggles.kernel(GogglesSettingsService.get(stack));
+        float[] values = new float[9];
+        for (int index = 0; index < values.length; index++) values[index] = kernel[index];
+        return values;
     }
 
     @Unique

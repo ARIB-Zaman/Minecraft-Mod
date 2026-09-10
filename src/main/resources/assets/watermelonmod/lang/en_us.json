@@ -2,6 +2,7 @@
   "item.watermelonmod.firstitem" : "FirstItem",
   "item.watermelonmod.greyscale_goggles" : "Greyscale Goggles",
   "item.watermelonmod.edge_detection_goggles" : "Edge Detection Goggles",
+  "item.watermelonmod.sharpening_goggles" : "Sharpening Goggles",
 
 
   "block.watermelonmod.first_block" : "First custom block",
@@ -10,6 +11,7 @@
   "gui.watermelonmod.workbench.insert_goggles" : "Insert goggles to configure them",
   "gui.watermelonmod.workbench.greyscale" : "Greyscale intensity",
   "gui.watermelonmod.workbench.edge_kernel" : "Sobel convolution kernel",
+  "gui.watermelonmod.workbench.sharpen_kernel" : "Sharpening convolution kernel",
   "gui.watermelonmod.workbench.rotate_kernel" : "Rotate 90°",
   "gui.watermelonmod.workbench.orientation" : "Orientation: %s°"
 }

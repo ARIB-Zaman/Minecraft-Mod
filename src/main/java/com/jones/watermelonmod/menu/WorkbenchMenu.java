@@ -4,7 +4,7 @@ import com.jones.watermelonmod.block.entity.WorkbenchBlockEntity;
 import com.jones.watermelonmod.goggles.GogglesParameter;
 import com.jones.watermelonmod.goggles.GogglesSettingsService;
 import com.jones.watermelonmod.item.custom.GogglesItem;
-import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
+import com.jones.watermelonmod.item.custom.ConvolutionGogglesItem;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -51,15 +51,18 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
 
     public int sliderPercent() { return sliderPercent.get(); }
     public ItemStack gogglesStack() { return workbench.getItem(GOGGLES_SLOT); }
-    public int[] edgeKernel() { return EdgeDetectionGogglesItem.kernel(GogglesSettingsService.get(gogglesStack())); }
+    public int[] convolutionKernel() {
+        return gogglesStack().getItem() instanceof ConvolutionGogglesItem goggles
+                ? goggles.kernel(GogglesSettingsService.get(gogglesStack())) : new int[9];
+    }
 
     @Override
     public boolean clickMenuButton(Player player, int buttonId) {
-        if (buttonId == ROTATE_EDGE_MATRIX && gogglesStack().getItem() instanceof EdgeDetectionGogglesItem) {
-            int[] kernel = edgeKernel();
+        if (buttonId == ROTATE_EDGE_MATRIX && gogglesStack().getItem() instanceof ConvolutionGogglesItem) {
+            int[] kernel = convolutionKernel();
             for (int row = 0; row < 3; row++) {
                 for (int column = 0; column < 3; column++) {
-                    GogglesSettingsService.setParameter(gogglesStack(), EdgeDetectionGogglesItem.coefficientKey(column * 3 + (2 - row)), kernel[row * 3 + column]);
+                    GogglesSettingsService.setParameter(gogglesStack(), ConvolutionGogglesItem.coefficientKey(column * 3 + (2 - row)), kernel[row * 3 + column]);
                 }
             }
             refreshSliderFromStack();
@@ -67,13 +70,13 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
             broadcastChanges();
             return true;
         }
-        if (gogglesStack().getItem() instanceof EdgeDetectionGogglesItem) {
+        if (gogglesStack().getItem() instanceof ConvolutionGogglesItem) {
             int index = buttonId >= INCREMENT_EDGE_CELL && buttonId < INCREMENT_EDGE_CELL + 9 ? buttonId - INCREMENT_EDGE_CELL
                     : buttonId >= DECREMENT_EDGE_CELL && buttonId < DECREMENT_EDGE_CELL + 9 ? buttonId - DECREMENT_EDGE_CELL : -1;
             if (index >= 0) {
                 int direction = buttonId >= DECREMENT_EDGE_CELL ? -1 : 1;
-                int value = edgeKernel()[index];
-                GogglesSettingsService.setParameter(gogglesStack(), EdgeDetectionGogglesItem.coefficientKey(index), value + direction);
+                int value = convolutionKernel()[index];
+                GogglesSettingsService.setParameter(gogglesStack(), ConvolutionGogglesItem.coefficientKey(index), value + direction);
                 workbench.setChanged();
                 broadcastChanges();
                 return true;
