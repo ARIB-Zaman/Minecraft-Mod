@@ -5,6 +5,7 @@ import com.jones.watermelonmod.item.custom.GogglesItem;
 import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
 import com.jones.watermelonmod.item.custom.ConvolutionGogglesItem;
 import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
+import com.jones.watermelonmod.item.custom.FrequencyFilterGogglesItem;
 import com.jones.watermelonmod.menu.WorkbenchMenu;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -64,9 +65,11 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
 
         GogglesParameter parameter = goggles.pipeline().parameters().values().stream().findFirst().orElse(null);
         if (parameter == null) return;
-        Component label = parameter.key().equals("intensity")
-                ? Component.translatable("gui.watermelonmod.workbench.greyscale")
-                : Component.literal(parameter.key());
+        Component label = goggles instanceof FrequencyFilterGogglesItem
+                ? Component.translatable("gui.watermelonmod.workbench.frequency_cutoff")
+                : parameter.key().equals("intensity")
+                    ? Component.translatable("gui.watermelonmod.workbench.greyscale")
+                    : Component.literal(parameter.key());
         graphics.text(font, label, x + SLIDER_X, y + 37, 0xFF404040, false);
         int trackY = y + SLIDER_Y;
         graphics.fill(x + SLIDER_X, trackY, x + SLIDER_X + SLIDER_WIDTH, trackY + 4, 0xFF555555);

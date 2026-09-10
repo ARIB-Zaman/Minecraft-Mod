@@ -3,6 +3,7 @@ package com.jones.watermelonmod;
 import com.jones.watermelonmod.client.goggles.GogglesPipelineRegistry;
 import com.jones.watermelonmod.client.goggles.GogglesPostProcessingController;
 import com.jones.watermelonmod.client.goggles.PostEffectGogglesPipeline;
+import com.jones.watermelonmod.client.fft.GpuFftProcessor;
 import com.jones.watermelonmod.item.custom.GreyscaleGogglesItem;
 import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
 import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
@@ -29,6 +30,9 @@ public final class WatermelonModClient implements ClientModInitializer {
                 SharpeningGogglesItem.PIPELINE_ID,
                 new PostEffectGogglesPipeline(WatermelonMod.id("sharpening"))
         );
-        ClientTickEvents.END_CLIENT_TICK.register(client -> GogglesPostProcessingController.tick(client));
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            GogglesPostProcessingController.tick(client);
+            GpuFftProcessor.tick(client);
+        });
     }
 }

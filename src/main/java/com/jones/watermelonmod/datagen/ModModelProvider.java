@@ -26,5 +26,6 @@ public class ModModelProvider extends FabricModelProvider {
         itemModelGenerators.generateFlatItem(ModItems.GREYSCALE_GOGGLES, ModelTemplates.FLAT_ITEM);
         itemModelGenerators.generateFlatItem(ModItems.EDGE_DETECTION_GOGGLES, ModelTemplates.FLAT_ITEM);
         itemModelGenerators.generateFlatItem(ModItems.SHARPENING_GOGGLES, ModelTemplates.FLAT_ITEM);
+        itemModelGenerators.generateFlatItem(ModItems.FREQUENCY_FILTER_GOGGLES, ModelTemplates.FLAT_ITEM);
     }
 }

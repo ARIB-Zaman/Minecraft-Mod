@@ -3,6 +3,7 @@
   "item.watermelonmod.greyscale_goggles" : "Greyscale Goggles",
   "item.watermelonmod.edge_detection_goggles" : "Edge Detection Goggles",
   "item.watermelonmod.sharpening_goggles" : "Sharpening Goggles",
+  "item.watermelonmod.frequency_filter_goggles" : "Frequency Filter Goggles",
 
 
   "block.watermelonmod.first_block" : "First custom block",
@@ -12,6 +13,7 @@
   "gui.watermelonmod.workbench.greyscale" : "Greyscale intensity",
   "gui.watermelonmod.workbench.edge_kernel" : "Sobel convolution kernel",
   "gui.watermelonmod.workbench.sharpen_kernel" : "Sharpening convolution kernel",
+  "gui.watermelonmod.workbench.frequency_cutoff" : "FFT low-pass cutoff",
   "gui.watermelonmod.workbench.rotate_kernel" : "Rotate 90°",
   "gui.watermelonmod.workbench.orientation" : "Orientation: %s°"
 }
