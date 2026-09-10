@@ -6,6 +6,7 @@ import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
 import com.jones.watermelonmod.item.custom.ConvolutionGogglesItem;
 import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
 import com.jones.watermelonmod.item.custom.FrequencyFilterGogglesItem;
+import com.jones.watermelonmod.item.custom.BandPassGogglesItem;
 import com.jones.watermelonmod.menu.WorkbenchMenu;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -26,7 +27,7 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
     private static final int SLIDER_X = 58;
     private static final int SLIDER_Y = 57;
     private static final int SLIDER_WIDTH = 100;
-    private boolean draggingSlider;
+    private int draggingSlider = -1;
     private static final int ROTATE_X = 67;
     private static final int ROTATE_Y = 91;
     private static final int ROTATE_WIDTH = 74;
@@ -63,20 +64,12 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
             return;
         }
 
-        GogglesParameter parameter = goggles.pipeline().parameters().values().stream().findFirst().orElse(null);
-        if (parameter == null) return;
-        Component label = goggles instanceof FrequencyFilterGogglesItem
-                ? Component.translatable("gui.watermelonmod.workbench.frequency_cutoff")
-                : parameter.key().equals("intensity")
-                    ? Component.translatable("gui.watermelonmod.workbench.greyscale")
-                    : Component.literal(parameter.key());
-        graphics.text(font, label, x + SLIDER_X, y + 37, 0xFF404040, false);
-        int trackY = y + SLIDER_Y;
-        graphics.fill(x + SLIDER_X, trackY, x + SLIDER_X + SLIDER_WIDTH, trackY + 4, 0xFF555555);
-        int knobX = x + SLIDER_X + Math.round((SLIDER_WIDTH - 6) * menu.sliderPercent() / 100.0F);
-        graphics.fill(knobX, trackY - 4, knobX + 6, trackY + 8, 0xFF2F75B5);
-        graphics.text(font, Component.literal(menu.sliderPercent() + "%"), x + 132, y + 70, 0xFF404040, false);
-        graphics.text(font, Component.literal(goggles.pipeline().id().getPath()), x + 58, y + 87, 0xFF555555, false);
+        int index = 0;
+        for (GogglesParameter parameter : goggles.pipeline().parameters().values()) {
+            if (index == 2) break;
+            extractSlider(graphics, x, y, goggles, parameter, index++);
+        }
+        graphics.text(font, Component.literal(goggles.pipeline().id().getPath()), x + 58, y + (index > 1 ? 105 : 87), 0xFF555555, false);
     }
 
     @Override
@@ -95,9 +88,10 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
             }
             return true;
         }
-        if (isOverSlider(event.x(), event.y()) && menu.gogglesStack().getItem() instanceof GogglesItem) {
-            draggingSlider = true;
-            setSlider(event.x());
+        int slider = sliderAt(event.x(), event.y());
+        if (slider >= 0 && menu.gogglesStack().getItem() instanceof GogglesItem) {
+            draggingSlider = slider;
+            setSlider(event.x(), slider);
             return true;
         }
         return super.mouseClicked(event, doubleClick);
@@ -105,8 +99,8 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
-        if (draggingSlider) {
-            setSlider(event.x());
+        if (draggingSlider >= 0) {
+            setSlider(event.x(), draggingSlider);
             return true;
         }
         return super.mouseDragged(event, dx, dy);
@@ -114,19 +108,42 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
-        draggingSlider = false;
+        draggingSlider = -1;
         return super.mouseReleased(event);
     }
 
-    private boolean isOverSlider(double mouseX, double mouseY) {
-        return mouseX >= leftPos + SLIDER_X && mouseX <= leftPos + SLIDER_X + SLIDER_WIDTH
-                && mouseY >= topPos + SLIDER_Y - 7 && mouseY <= topPos + SLIDER_Y + 11;
+    private void extractSlider(GuiGraphicsExtractor graphics, int x, int y, GogglesItem goggles, GogglesParameter parameter, int index) {
+        Component label = goggles instanceof BandPassGogglesItem
+                ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.band_low_cutoff" : "gui.watermelonmod.workbench.band_high_cutoff")
+                : goggles instanceof FrequencyFilterGogglesItem
+                    ? Component.translatable("gui.watermelonmod.workbench.frequency_cutoff")
+                    : parameter.key().equals("intensity")
+                        ? Component.translatable("gui.watermelonmod.workbench.greyscale")
+                        : Component.literal(parameter.key());
+        int offsetY = index * 25;
+        graphics.text(font, label, x + SLIDER_X, y + 37 + offsetY, 0xFF404040, false);
+        int trackY = y + SLIDER_Y + offsetY;
+        graphics.fill(x + SLIDER_X, trackY, x + SLIDER_X + SLIDER_WIDTH, trackY + 4, 0xFF555555);
+        int knobX = x + SLIDER_X + Math.round((SLIDER_WIDTH - 6) * menu.sliderPercent(index) / 100.0F);
+        graphics.fill(knobX, trackY - 4, knobX + 6, trackY + 8, 0xFF2F75B5);
+        graphics.text(font, Component.literal(menu.sliderPercent(index) + "%"), x + 132, y + 70 + offsetY, 0xFF404040, false);
     }
 
-    private void setSlider(double mouseX) {
+    private int sliderAt(double mouseX, double mouseY) {
+        if (mouseX < leftPos + SLIDER_X || mouseX > leftPos + SLIDER_X + SLIDER_WIDTH) return -1;
+        int count = menu.gogglesStack().getItem() instanceof GogglesItem goggles ? Math.min(2, goggles.pipeline().parameters().size()) : 0;
+        for (int index = 0; index < count; index++) {
+            int trackY = topPos + SLIDER_Y + index * 25;
+            if (mouseY >= trackY - 7 && mouseY <= trackY + 11) return index;
+        }
+        return -1;
+    }
+
+    private void setSlider(double mouseX, int index) {
         int percent = Mth.clamp((int)Math.round((mouseX - (leftPos + SLIDER_X)) * 100.0 / SLIDER_WIDTH), 0, 100);
-        if (percent != menu.sliderPercent() && menu.clickMenuButton(minecraft.player, percent)) {
-            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, percent);
+        int button = WorkbenchMenu.sliderButtonId(index, percent);
+        if (percent != menu.sliderPercent(index) && menu.clickMenuButton(minecraft.player, button)) {
+            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, button);
         }
     }
 

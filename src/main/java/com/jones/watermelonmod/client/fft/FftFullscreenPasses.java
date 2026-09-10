@@ -30,7 +30,7 @@ final class FftFullscreenPasses {
     private final ByteBuffer data = ByteBuffer.allocateDirect(4 * Float.BYTES).order(ByteOrder.nativeOrder());
 
     FftFullscreenPasses() {
-        for (String name : new String[]{"pack_rg", "pack_b", "butterfly", "filter", "reorder"}) {
+        for (String name : new String[]{"pack_rg", "pack_b", "butterfly", "filter", "band_pass", "reorder"}) {
             oneInput.put(name, create(name, false, GpuFormat.RGBA32_FLOAT));
         }
         oneInput.put("composite", create("composite", false, GpuFormat.RGBA8_UNORM));

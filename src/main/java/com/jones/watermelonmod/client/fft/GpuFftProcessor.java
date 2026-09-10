@@ -4,6 +4,7 @@ import com.jones.watermelonmod.WatermelonMod;
 import com.jones.watermelonmod.goggles.GogglesEquipment;
 import com.jones.watermelonmod.goggles.GogglesSettingsService;
 import com.jones.watermelonmod.item.custom.FrequencyFilterGogglesItem;
+import com.jones.watermelonmod.item.custom.BandPassGogglesItem;
 import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
@@ -20,7 +21,10 @@ public final class GpuFftProcessor {
     public static final int HEIGHT = 512;
 
     private static boolean active;
+    private static FilterMode filterMode = FilterMode.GAUSSIAN_LOW_PASS;
     private static float cutoff = 0.20F;
+    private static float bandLowCutoff = 0.05F;
+    private static float bandHighCutoff = 0.25F;
     private static Targets targets;
     private static FftFullscreenPasses passes;
 
@@ -29,13 +33,22 @@ public final class GpuFftProcessor {
 
     /** Called on the client tick; the actual GPU work is done on render thread. */
     public static void tick(Minecraft client) {
-        active = client.player != null && GogglesEquipment.equippedGoggles(client.player)
-                .filter(stack -> stack.getItem() instanceof FrequencyFilterGogglesItem)
-                .map(stack -> {
-                    cutoff = GogglesSettingsService.get(stack).value("cutoff", 0.20F);
-                    return true;
-                })
-                .orElse(false);
+        active = client.player != null && GogglesEquipment.equippedGoggles(client.player).map(stack -> {
+            if (stack.getItem() instanceof FrequencyFilterGogglesItem) {
+                filterMode = FilterMode.GAUSSIAN_LOW_PASS;
+                cutoff = GogglesSettingsService.get(stack).value("cutoff", 0.20F);
+                return true;
+            }
+            if (stack.getItem() instanceof BandPassGogglesItem) {
+                filterMode = FilterMode.HARD_BAND_PASS;
+                float first = GogglesSettingsService.get(stack).value("low_cutoff", 0.05F);
+                float second = GogglesSettingsService.get(stack).value("high_cutoff", 0.25F);
+                bandLowCutoff = Math.min(first, second);
+                bandHighCutoff = Math.max(first, second);
+                return true;
+            }
+            return false;
+        }).orElse(false);
     }
 
     /** Invoked from GameRenderer after the vanilla post-chain, before the GUI. */
@@ -49,8 +62,11 @@ public final class GpuFftProcessor {
 
         RenderTarget rg = transform(targets.rgA, targets.rgB, targets.rgA, targets.rgB, false);
         RenderTarget blue = transform(targets.bA, targets.bB, targets.bA, targets.bB, false);
-        rg = passes.one("filter", rg, other(rg, targets.rgA, targets.rgB), cutoff, 0, 0, 0);
-        blue = passes.one("filter", blue, other(blue, targets.bA, targets.bB), cutoff, 0, 0, 0);
+        String filterShader = filterMode == FilterMode.HARD_BAND_PASS ? "band_pass" : "filter";
+        float filterLow = filterMode == FilterMode.HARD_BAND_PASS ? bandLowCutoff : cutoff;
+        float filterHigh = filterMode == FilterMode.HARD_BAND_PASS ? bandHighCutoff : 0.0F;
+        rg = passes.one(filterShader, rg, other(rg, targets.rgA, targets.rgB), filterLow, filterHigh, 0, 0);
+        blue = passes.one(filterShader, blue, other(blue, targets.bA, targets.bB), filterLow, filterHigh, 0, 0);
         rg = passes.one("reorder", rg, other(rg, targets.rgA, targets.rgB), 0, 0, 0, 0);
         blue = passes.one("reorder", blue, other(blue, targets.bA, targets.bB), 0, 0, 0, 0);
         rg = transform(rg, other(rg, targets.rgA, targets.rgB), targets.rgA, targets.rgB, true);
@@ -94,5 +110,10 @@ public final class GpuFftProcessor {
         private static TextureTarget target(String name, GpuFormat format) {
             return new TextureTarget("watermelonmod " + name, WIDTH, HEIGHT, false, format);
         }
+    }
+
+    private enum FilterMode {
+        GAUSSIAN_LOW_PASS,
+        HARD_BAND_PASS
     }
 }

@@ -15,18 +15,20 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Shared workbench menu. It accepts only goggles and maps the 0..100 slider
- * command to the selected goggles pipeline's first exposed parameter.
+ * Shared workbench menu. It accepts only goggles and maps slider commands to
+ * ordered pipeline parameters. Index zero retains the original 0..100 IDs;
+ * later sliders use an offset so multi-control goggles remain extensible.
  */
 public final class WorkbenchMenu extends AbstractContainerMenu {
     public static final int GOGGLES_SLOT = 0;
     public static final int ROTATE_EDGE_MATRIX = 101;
     public static final int INCREMENT_EDGE_CELL = 200;
     public static final int DECREMENT_EDGE_CELL = 220;
+    private static final int ADDITIONAL_SLIDER_BUTTON_BASE = 1000;
     private static final int PLAYER_SLOT_START = 1;
     private static final int PLAYER_SLOT_END = 37;
     private final Container workbench;
-    private final DataSlot sliderPercent = DataSlot.standalone();
+    private final DataSlot[] sliderPercents = {DataSlot.standalone(), DataSlot.standalone()};
 
     public WorkbenchMenu(int containerId, Inventory inventory) {
         this(containerId, inventory, new SimpleContainer(1));
@@ -45,11 +47,15 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
             @Override public void setChanged() { super.setChanged(); refreshSliderFromStack(); }
         });
         addStandardInventorySlots(inventory, 8, 126);
-        addDataSlot(sliderPercent);
+        for (DataSlot sliderPercent : sliderPercents) addDataSlot(sliderPercent);
         refreshSliderFromStack();
     }
 
-    public int sliderPercent() { return sliderPercent.get(); }
+    public int sliderPercent() { return sliderPercent(0); }
+    public int sliderPercent(int index) { return index >= 0 && index < sliderPercents.length ? sliderPercents[index].get() : 0; }
+    public static int sliderButtonId(int parameterIndex, int percent) {
+        return parameterIndex == 0 ? percent : ADDITIONAL_SLIDER_BUTTON_BASE * parameterIndex + percent;
+    }
     public ItemStack gogglesStack() { return workbench.getItem(GOGGLES_SLOT); }
     public int[] convolutionKernel() {
         return gogglesStack().getItem() instanceof ConvolutionGogglesItem goggles
@@ -82,12 +88,15 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
                 return true;
             }
         }
-        if (buttonId < 0 || buttonId > 100 || !(gogglesStack().getItem() instanceof GogglesItem goggles)) return false;
-        GogglesParameter parameter = goggles.pipeline().parameters().values().stream().findFirst().orElse(null);
+        if (!(gogglesStack().getItem() instanceof GogglesItem goggles)) return false;
+        int parameterIndex = sliderParameterIndex(buttonId);
+        if (parameterIndex < 0) return false;
+        GogglesParameter parameter = goggles.pipeline().parameters().values().stream().skip(parameterIndex).findFirst().orElse(null);
         if (parameter == null) return false;
-        float value = parameter.minimum() + (parameter.maximum() - parameter.minimum()) * buttonId / 100.0F;
+        int percent = buttonId % ADDITIONAL_SLIDER_BUTTON_BASE;
+        float value = parameter.minimum() + (parameter.maximum() - parameter.minimum()) * percent / 100.0F;
         GogglesSettingsService.setParameter(gogglesStack(), parameter.key(), value);
-        sliderPercent.set(buttonId);
+        sliderPercents[parameterIndex].set(percent);
         workbench.setChanged();
         broadcastChanges();
         return true;
@@ -95,14 +104,22 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
 
     private void refreshSliderFromStack() {
         if (gogglesStack().getItem() instanceof GogglesItem goggles) {
-            GogglesParameter parameter = goggles.pipeline().parameters().values().stream().findFirst().orElse(null);
-            if (parameter != null) {
+            int index = 0;
+            for (GogglesParameter parameter : goggles.pipeline().parameters().values()) {
+                if (index >= sliderPercents.length) break;
                 float value = GogglesSettingsService.get(gogglesStack()).value(parameter.key(), parameter.defaultValue());
-                sliderPercent.set(Math.round(100.0F * (value - parameter.minimum()) / (parameter.maximum() - parameter.minimum())));
-                return;
+                sliderPercents[index++].set(Math.round(100.0F * (value - parameter.minimum()) / (parameter.maximum() - parameter.minimum())));
             }
+            while (index < sliderPercents.length) sliderPercents[index++].set(0);
+            return;
         }
-        sliderPercent.set(0);
+        for (DataSlot sliderPercent : sliderPercents) sliderPercent.set(0);
+    }
+
+    private static int sliderParameterIndex(int buttonId) {
+        if (buttonId >= 0 && buttonId <= 100) return 0;
+        if (buttonId >= ADDITIONAL_SLIDER_BUTTON_BASE && buttonId <= ADDITIONAL_SLIDER_BUTTON_BASE + 100) return 1;
+        return -1;
     }
 
     @Override public boolean stillValid(Player player) { return workbench.stillValid(player); }

@@ -4,6 +4,7 @@
   "item.watermelonmod.edge_detection_goggles" : "Edge Detection Goggles",
   "item.watermelonmod.sharpening_goggles" : "Sharpening Goggles",
   "item.watermelonmod.frequency_filter_goggles" : "Frequency Filter Goggles",
+  "item.watermelonmod.band_pass_goggles" : "Band-pass Filter Goggles",
 
 
   "block.watermelonmod.first_block" : "First custom block",
@@ -14,6 +15,8 @@
   "gui.watermelonmod.workbench.edge_kernel" : "Sobel convolution kernel",
   "gui.watermelonmod.workbench.sharpen_kernel" : "Sharpening convolution kernel",
   "gui.watermelonmod.workbench.frequency_cutoff" : "FFT low-pass cutoff",
+  "gui.watermelonmod.workbench.band_low_cutoff" : "Band-pass low cutoff",
+  "gui.watermelonmod.workbench.band_high_cutoff" : "Band-pass high cutoff",
   "gui.watermelonmod.workbench.rotate_kernel" : "Rotate 90°",
   "gui.watermelonmod.workbench.orientation" : "Orientation: %s°"
 }
