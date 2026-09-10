@@ -3,5 +3,9 @@
   "item.watermelonmod.greyscale_goggles" : "Greyscale Goggles",
 
 
-  "block.watermelonmod.first_block" : "First custom block"
+  "block.watermelonmod.first_block" : "First custom block",
+  "block.watermelonmod.workbench" : "Goggles Workbench",
+  "container.watermelonmod.workbench" : "Goggles Workbench",
+  "gui.watermelonmod.workbench.insert_goggles" : "Insert goggles to configure them",
+  "gui.watermelonmod.workbench.greyscale" : "Greyscale intensity"
 }

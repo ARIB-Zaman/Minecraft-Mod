@@ -10,7 +10,9 @@ import java.util.Map;
  */
 public record GogglesPipeline(Identifier id, Map<String, GogglesParameter> parameters) {
     public GogglesPipeline {
-        parameters = Map.copyOf(parameters);
+        // The workbench presents pipeline parameters in declaration order.  A
+        // LinkedHashMap also makes future menu button IDs stable across sides.
+        parameters = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(parameters));
     }
 
     public GogglesSettings defaultSettings() {

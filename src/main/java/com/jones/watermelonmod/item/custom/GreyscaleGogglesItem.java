@@ -18,7 +18,7 @@ public final class GreyscaleGogglesItem extends GogglesItem {
     public static final Identifier PIPELINE_ID = WatermelonMod.id("greyscale");
     public static final GogglesPipeline PIPELINE = new GogglesPipeline(
             PIPELINE_ID,
-            Map.of("enabled", new GogglesParameter("enabled", 1.0F, 0.0F, 1.0F))
+            Map.of("intensity", new GogglesParameter("intensity", 1.0F, 0.0F, 1.0F))
     );
 
     public GreyscaleGogglesItem(Item.Properties properties) {

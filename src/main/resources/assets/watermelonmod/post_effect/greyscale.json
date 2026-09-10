@@ -12,6 +12,15 @@
           "target": "minecraft:main"
         }
       ],
+      "uniforms": {
+        "GreyscaleConfig": [
+          {
+            "name": "Intensity",
+            "type": "float",
+            "value": 1.0
+          }
+        ]
+      },
       "output": "swap"
     },
     {

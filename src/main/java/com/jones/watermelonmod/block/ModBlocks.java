@@ -1,6 +1,7 @@
 package com.jones.watermelonmod.block;
 
 import com.jones.watermelonmod.WatermelonMod;
+import com.jones.watermelonmod.block.custom.WorkBench;
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -21,6 +22,9 @@ public class ModBlocks {
             properties -> new Block(properties.strength(2f)
                     .sound(SoundType.AMETHYST))
             );
+    public static final Block WORKBENCH = registerBlock("workbench",
+            properties -> new WorkBench(properties.strength(2.5F).sound(SoundType.AMETHYST))
+    );
 
     private static Block registerBlock(String name, Function<BlockBehaviour.Properties, Block> function){
         Block toRegister = function.apply(BlockBehaviour.Properties.of().setId(ResourceKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(WatermelonMod.MOD_ID, name))));
@@ -38,6 +42,7 @@ public class ModBlocks {
         WatermelonMod.LOGGER.info("Registering Mod Block for " + WatermelonMod.MOD_ID);
         CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.INGREDIENTS).register(output -> {
             output.accept(FIRST_BLOCK);
+            output.accept(WORKBENCH);
         });
     }
 }

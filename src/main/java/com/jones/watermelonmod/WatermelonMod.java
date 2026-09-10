@@ -1,6 +1,8 @@
 package com.jones.watermelonmod;
 
 import com.jones.watermelonmod.block.ModBlocks;
+import com.jones.watermelonmod.block.entity.ModBlockEntities;
+import com.jones.watermelonmod.menu.ModMenus;
 import com.jones.watermelonmod.item.ModItems;
 import com.jones.watermelonmod.item.ModDataComponents;
 import net.fabricmc.api.ModInitializer;
@@ -27,6 +29,8 @@ public class WatermelonMod implements ModInitializer {
 		ModDataComponents.initialize();
 		ModItems.registerModItems();
 		ModBlocks.registerModBlocks();
+		ModBlockEntities.initialize();
+		ModMenus.initialize();
 		LOGGER.info("Hello Fabric world!");
 	}
 

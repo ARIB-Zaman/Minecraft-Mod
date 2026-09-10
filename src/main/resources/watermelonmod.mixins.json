@@ -6,7 +6,8 @@
 		"ExampleMixin"
 	],
 	"client": [
-		"client.GameRendererInvoker"
+		"client.GameRendererInvoker",
+		"client.PostPassMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

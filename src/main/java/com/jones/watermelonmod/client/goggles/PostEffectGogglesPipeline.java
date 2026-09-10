@@ -9,6 +9,8 @@ import java.util.Optional;
 public record PostEffectGogglesPipeline(Identifier postEffectId) implements GogglesClientPipeline {
     @Override
     public Optional<Identifier> postEffect(GogglesSettings settings) {
-        return settings.value("enabled", 1.0F) >= 0.5F ? Optional.of(postEffectId) : Optional.empty();
+        // An intensity of zero is an identity pass, not an on/off threshold.
+        // The post-pass mixin uploads the current parameter every rendered frame.
+        return Optional.of(postEffectId);
     }
 }
