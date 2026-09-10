@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "watermelonmod:item/edge_detection_goggles"
+  }
+}

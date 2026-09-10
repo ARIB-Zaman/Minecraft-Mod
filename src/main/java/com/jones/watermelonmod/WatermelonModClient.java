@@ -4,6 +4,7 @@ import com.jones.watermelonmod.client.goggles.GogglesPipelineRegistry;
 import com.jones.watermelonmod.client.goggles.GogglesPostProcessingController;
 import com.jones.watermelonmod.client.goggles.PostEffectGogglesPipeline;
 import com.jones.watermelonmod.item.custom.GreyscaleGogglesItem;
+import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
 import com.jones.watermelonmod.client.workbench.WorkbenchScreen;
 import com.jones.watermelonmod.menu.ModMenus;
 import net.fabricmc.api.ClientModInitializer;
@@ -18,6 +19,10 @@ public final class WatermelonModClient implements ClientModInitializer {
         GogglesPipelineRegistry.register(
                 GreyscaleGogglesItem.PIPELINE_ID,
                 new PostEffectGogglesPipeline(WatermelonMod.id("greyscale"))
+        );
+        GogglesPipelineRegistry.register(
+                EdgeDetectionGogglesItem.PIPELINE_ID,
+                new PostEffectGogglesPipeline(WatermelonMod.id("edge_detection"))
         );
         ClientTickEvents.END_CLIENT_TICK.register(client -> GogglesPostProcessingController.tick(client));
     }

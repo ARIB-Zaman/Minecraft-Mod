@@ -2,6 +2,7 @@ package com.jones.watermelonmod.client.workbench;
 
 import com.jones.watermelonmod.goggles.GogglesParameter;
 import com.jones.watermelonmod.item.custom.GogglesItem;
+import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
 import com.jones.watermelonmod.menu.WorkbenchMenu;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -23,10 +24,14 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
     private static final int SLIDER_Y = 57;
     private static final int SLIDER_WIDTH = 100;
     private boolean draggingSlider;
+    private static final int ROTATE_X = 67;
+    private static final int ROTATE_Y = 91;
+    private static final int ROTATE_WIDTH = 74;
+    private static final int ROTATE_HEIGHT = 15;
 
     public WorkbenchScreen(WorkbenchMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title, 176, 222);
-        inventoryLabelY = 102;
+        inventoryLabelY = 112;
     }
 
     @Override
@@ -50,6 +55,11 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
             return;
         }
 
+        if (goggles instanceof EdgeDetectionGogglesItem) {
+            extractEdgeKernel(graphics, x, y);
+            return;
+        }
+
         GogglesParameter parameter = goggles.pipeline().parameters().values().stream().findFirst().orElse(null);
         if (parameter == null) return;
         Component label = parameter.key().equals("intensity")
@@ -66,6 +76,12 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (menu.gogglesStack().getItem() instanceof EdgeDetectionGogglesItem && isOverRotateButton(event.x(), event.y())) {
+            if (menu.clickMenuButton(minecraft.player, WorkbenchMenu.ROTATE_EDGE_MATRIX)) {
+                minecraft.gameMode.handleInventoryButtonClick(menu.containerId, WorkbenchMenu.ROTATE_EDGE_MATRIX);
+            }
+            return true;
+        }
         if (isOverSlider(event.x(), event.y()) && menu.gogglesStack().getItem() instanceof GogglesItem) {
             draggingSlider = true;
             setSlider(event.x());
@@ -99,5 +115,31 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
         if (percent != menu.sliderPercent() && menu.clickMenuButton(minecraft.player, percent)) {
             minecraft.gameMode.handleInventoryButtonClick(menu.containerId, percent);
         }
+    }
+
+    private void extractEdgeKernel(GuiGraphicsExtractor graphics, int x, int y) {
+        int rotation = Math.floorMod(Math.round(menu.sliderPercent() / 100.0F * 3.0F), 4);
+        int[] kernel = EdgeDetectionGogglesItem.kernelForRotation(rotation);
+        graphics.text(font, Component.translatable("gui.watermelonmod.workbench.edge_kernel"), x + 58, y + 27, 0x404040, false);
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                int cellX = x + 70 + column * 18;
+                int cellY = y + 42 + row * 15;
+                graphics.fill(cellX, cellY, cellX + 16, cellY + 13, 0xFF555555);
+                graphics.fill(cellX + 1, cellY + 1, cellX + 15, cellY + 12, 0xFFB9D5EA);
+                String value = Integer.toString(kernel[row * 3 + column]);
+                graphics.text(font, Component.literal(value), cellX + 8 - font.width(value) / 2, cellY + 3, 0x303030, false);
+            }
+        }
+        graphics.fill(x + ROTATE_X, y + ROTATE_Y, x + ROTATE_X + ROTATE_WIDTH, y + ROTATE_Y + ROTATE_HEIGHT, 0xFF555555);
+        graphics.fill(x + ROTATE_X + 1, y + ROTATE_Y + 1, x + ROTATE_X + ROTATE_WIDTH - 1, y + ROTATE_Y + ROTATE_HEIGHT - 1, 0xFF82A9C4);
+        Component rotate = Component.translatable("gui.watermelonmod.workbench.rotate_kernel");
+        graphics.text(font, rotate, x + ROTATE_X + (ROTATE_WIDTH - font.width(rotate)) / 2, y + ROTATE_Y + 4, 0x202020, false);
+        graphics.text(font, Component.translatable("gui.watermelonmod.workbench.orientation", rotation * 90), x + 70, y + 109, 0x555555, false);
+    }
+
+    private boolean isOverRotateButton(double mouseX, double mouseY) {
+        return mouseX >= leftPos + ROTATE_X && mouseX < leftPos + ROTATE_X + ROTATE_WIDTH
+                && mouseY >= topPos + ROTATE_Y && mouseY < topPos + ROTATE_Y + ROTATE_HEIGHT;
     }
 }

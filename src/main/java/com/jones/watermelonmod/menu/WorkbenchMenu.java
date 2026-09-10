@@ -4,6 +4,7 @@ import com.jones.watermelonmod.block.entity.WorkbenchBlockEntity;
 import com.jones.watermelonmod.goggles.GogglesParameter;
 import com.jones.watermelonmod.goggles.GogglesSettingsService;
 import com.jones.watermelonmod.item.custom.GogglesItem;
+import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -19,6 +20,7 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class WorkbenchMenu extends AbstractContainerMenu {
     public static final int GOGGLES_SLOT = 0;
+    public static final int ROTATE_EDGE_MATRIX = 101;
     private static final int PLAYER_SLOT_START = 1;
     private static final int PLAYER_SLOT_END = 37;
     private final Container workbench;
@@ -50,6 +52,14 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
 
     @Override
     public boolean clickMenuButton(Player player, int buttonId) {
+        if (buttonId == ROTATE_EDGE_MATRIX && gogglesStack().getItem() instanceof EdgeDetectionGogglesItem) {
+            int rotation = Math.round(GogglesSettingsService.get(gogglesStack()).value("rotation", 0.0F));
+            GogglesSettingsService.setParameter(gogglesStack(), "rotation", Math.floorMod(rotation + 1, 4));
+            refreshSliderFromStack();
+            workbench.setChanged();
+            broadcastChanges();
+            return true;
+        }
         if (buttonId < 0 || buttonId > 100 || !(gogglesStack().getItem() instanceof GogglesItem goggles)) return false;
         GogglesParameter parameter = goggles.pipeline().parameters().values().stream().findFirst().orElse(null);
         if (parameter == null) return false;
