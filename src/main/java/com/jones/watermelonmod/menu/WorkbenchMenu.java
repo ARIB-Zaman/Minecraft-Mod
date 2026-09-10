@@ -21,6 +21,8 @@ import net.minecraft.world.item.ItemStack;
 public final class WorkbenchMenu extends AbstractContainerMenu {
     public static final int GOGGLES_SLOT = 0;
     public static final int ROTATE_EDGE_MATRIX = 101;
+    public static final int INCREMENT_EDGE_CELL = 200;
+    public static final int DECREMENT_EDGE_CELL = 220;
     private static final int PLAYER_SLOT_START = 1;
     private static final int PLAYER_SLOT_END = 37;
     private final Container workbench;
@@ -49,16 +51,33 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
 
     public int sliderPercent() { return sliderPercent.get(); }
     public ItemStack gogglesStack() { return workbench.getItem(GOGGLES_SLOT); }
+    public int[] edgeKernel() { return EdgeDetectionGogglesItem.kernel(GogglesSettingsService.get(gogglesStack())); }
 
     @Override
     public boolean clickMenuButton(Player player, int buttonId) {
         if (buttonId == ROTATE_EDGE_MATRIX && gogglesStack().getItem() instanceof EdgeDetectionGogglesItem) {
-            int rotation = Math.round(GogglesSettingsService.get(gogglesStack()).value("rotation", 0.0F));
-            GogglesSettingsService.setParameter(gogglesStack(), "rotation", Math.floorMod(rotation + 1, 4));
+            int[] kernel = edgeKernel();
+            for (int row = 0; row < 3; row++) {
+                for (int column = 0; column < 3; column++) {
+                    GogglesSettingsService.setParameter(gogglesStack(), EdgeDetectionGogglesItem.coefficientKey(column * 3 + (2 - row)), kernel[row * 3 + column]);
+                }
+            }
             refreshSliderFromStack();
             workbench.setChanged();
             broadcastChanges();
             return true;
+        }
+        if (gogglesStack().getItem() instanceof EdgeDetectionGogglesItem) {
+            int index = buttonId >= INCREMENT_EDGE_CELL && buttonId < INCREMENT_EDGE_CELL + 9 ? buttonId - INCREMENT_EDGE_CELL
+                    : buttonId >= DECREMENT_EDGE_CELL && buttonId < DECREMENT_EDGE_CELL + 9 ? buttonId - DECREMENT_EDGE_CELL : -1;
+            if (index >= 0) {
+                int direction = buttonId >= DECREMENT_EDGE_CELL ? -1 : 1;
+                int value = edgeKernel()[index];
+                GogglesSettingsService.setParameter(gogglesStack(), EdgeDetectionGogglesItem.coefficientKey(index), value + direction);
+                workbench.setChanged();
+                broadcastChanges();
+                return true;
+            }
         }
         if (buttonId < 0 || buttonId > 100 || !(gogglesStack().getItem() instanceof GogglesItem goggles)) return false;
         GogglesParameter parameter = goggles.pipeline().parameters().values().stream().findFirst().orElse(null);

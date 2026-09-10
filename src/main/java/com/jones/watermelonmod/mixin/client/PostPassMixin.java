@@ -25,7 +25,7 @@ public abstract class PostPassMixin {
     @Shadow private String name;
     @Shadow private Map<String, GpuBuffer> customUniforms;
     @Unique private GpuBuffer watermelonmod$dynamicBuffer;
-    @Unique private final ByteBuffer watermelonmod$intensityData = ByteBuffer.allocateDirect(Float.BYTES).order(ByteOrder.nativeOrder());
+    @Unique private final ByteBuffer watermelonmod$uniformData = ByteBuffer.allocateDirect(9 * Float.BYTES).order(ByteOrder.nativeOrder());
 
     @Inject(method = "addToFrame", at = @At("HEAD"))
     private void watermelonmod$updateGreyscaleUniform(CallbackInfo ci) {
@@ -35,22 +35,27 @@ public abstract class PostPassMixin {
                 .filter(stack -> stack.getItem() instanceof GreyscaleGogglesItem)
                 .map(stack -> GogglesSettingsService.get(stack).value("intensity", 1.0F))
                 .orElse(0.0F);
-        uploadFloat("GreyscaleConfig", intensity);
+        uploadFloats("GreyscaleConfig", intensity);
     }
 
     @Inject(method = "addToFrame", at = @At("HEAD"))
     private void watermelonmod$updateEdgeUniform(CallbackInfo ci) {
         if (!name.contains("watermelonmod:edge_detection/0")) return;
-        float rotation = Minecraft.getInstance().player == null ? 0.0F
+        float[] kernel = Minecraft.getInstance().player == null ? new float[9]
                 : GogglesEquipment.equippedGoggles(Minecraft.getInstance().player)
                 .filter(stack -> stack.getItem() instanceof EdgeDetectionGogglesItem)
-                .map(stack -> GogglesSettingsService.get(stack).value("rotation", 0.0F))
-                .orElse(0.0F);
-        uploadFloat("EdgeConfig", rotation);
+                .map(stack -> {
+                    float[] values = new float[9];
+                    for (int index = 0; index < values.length; index++) {
+                        values[index] = GogglesSettingsService.get(stack).value(EdgeDetectionGogglesItem.coefficientKey(index), 0.0F);
+                    }
+                    return values;
+                }).orElseGet(() -> new float[9]);
+        uploadFloats("EdgeConfig", kernel);
     }
 
     @Unique
-    private void uploadFloat(String uniformName, float value) {
+    private void uploadFloats(String uniformName, float... values) {
         GpuBuffer buffer = customUniforms.get(uniformName);
         if (buffer == null) return;
         // Vanilla's JSON-created UBO is immutable. Replace it once with an
@@ -64,10 +69,11 @@ public abstract class PostPassMixin {
             customUniforms.put(uniformName, watermelonmod$dynamicBuffer);
             buffer.close();
         }
-        watermelonmod$intensityData.clear();
-        watermelonmod$intensityData.putFloat(value).flip();
+        watermelonmod$uniformData.clear();
+        for (float value : values) watermelonmod$uniformData.putFloat(value);
+        watermelonmod$uniformData.flip();
         RenderSystem.getDevice().createCommandEncoder().writeToBuffer(
-                watermelonmod$dynamicBuffer.slice(0, Float.BYTES), watermelonmod$intensityData
+                watermelonmod$dynamicBuffer.slice(0, (long)values.length * Float.BYTES), watermelonmod$uniformData
         );
     }
 }

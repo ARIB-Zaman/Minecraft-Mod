@@ -76,6 +76,14 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (menu.gogglesStack().getItem() instanceof EdgeDetectionGogglesItem && isOverMatrix(event.x(), event.y())) {
+            int cell = matrixCellAt(event.x(), event.y());
+            int button = event.button() == 1 ? WorkbenchMenu.DECREMENT_EDGE_CELL + cell : WorkbenchMenu.INCREMENT_EDGE_CELL + cell;
+            if (menu.clickMenuButton(minecraft.player, button)) {
+                minecraft.gameMode.handleInventoryButtonClick(menu.containerId, button);
+            }
+            return true;
+        }
         if (menu.gogglesStack().getItem() instanceof EdgeDetectionGogglesItem && isOverRotateButton(event.x(), event.y())) {
             if (menu.clickMenuButton(minecraft.player, WorkbenchMenu.ROTATE_EDGE_MATRIX)) {
                 minecraft.gameMode.handleInventoryButtonClick(menu.containerId, WorkbenchMenu.ROTATE_EDGE_MATRIX);
@@ -118,8 +126,7 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
     }
 
     private void extractEdgeKernel(GuiGraphicsExtractor graphics, int x, int y) {
-        int rotation = Math.floorMod(Math.round(menu.sliderPercent() / 100.0F * 3.0F), 4);
-        int[] kernel = EdgeDetectionGogglesItem.kernelForRotation(rotation);
+        int[] kernel = menu.edgeKernel();
         graphics.text(font, Component.translatable("gui.watermelonmod.workbench.edge_kernel"), x + 58, y + 27, 0xFF404040, false);
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 3; column++) {
@@ -135,11 +142,21 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
         graphics.fill(x + ROTATE_X + 1, y + ROTATE_Y + 1, x + ROTATE_X + ROTATE_WIDTH - 1, y + ROTATE_Y + ROTATE_HEIGHT - 1, 0xFF82A9C4);
         Component rotate = Component.translatable("gui.watermelonmod.workbench.rotate_kernel");
         graphics.text(font, rotate, x + ROTATE_X + (ROTATE_WIDTH - font.width(rotate)) / 2, y + ROTATE_Y + 4, 0xFF202020, false);
-        graphics.text(font, Component.translatable("gui.watermelonmod.workbench.orientation", rotation * 90), x + 70, y + 109, 0xFF555555, false);
+        graphics.text(font, Component.literal("Left-click: +1    Right-click: -1"), x + 58, y + 109, 0xFF555555, false);
     }
 
     private boolean isOverRotateButton(double mouseX, double mouseY) {
         return mouseX >= leftPos + ROTATE_X && mouseX < leftPos + ROTATE_X + ROTATE_WIDTH
                 && mouseY >= topPos + ROTATE_Y && mouseY < topPos + ROTATE_Y + ROTATE_HEIGHT;
+    }
+
+    private boolean isOverMatrix(double mouseX, double mouseY) {
+        return mouseX >= leftPos + 70 && mouseX < leftPos + 124 && mouseY >= topPos + 42 && mouseY < topPos + 87;
+    }
+
+    private int matrixCellAt(double mouseX, double mouseY) {
+        int column = Math.min(2, (int)(mouseX - (leftPos + 70)) / 18);
+        int row = Math.min(2, (int)(mouseY - (topPos + 42)) / 15);
+        return row * 3 + column;
     }
 }

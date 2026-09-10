@@ -6,7 +6,11 @@
       "fragment_shader": "watermelonmod:post/edge_detection",
       "inputs": [{ "sampler_name": "In", "target": "minecraft:main" }],
       "uniforms": {
-        "EdgeConfig": [{ "name": "Rotation", "type": "float", "value": 0.0 }]
+        "EdgeConfig": [
+          { "name": "K00", "type": "float", "value": -1.0 }, { "name": "K01", "type": "float", "value": 0.0 }, { "name": "K02", "type": "float", "value": 1.0 },
+          { "name": "K10", "type": "float", "value": -2.0 }, { "name": "K11", "type": "float", "value": 0.0 }, { "name": "K12", "type": "float", "value": 2.0 },
+          { "name": "K20", "type": "float", "value": -1.0 }, { "name": "K21", "type": "float", "value": 0.0 }, { "name": "K22", "type": "float", "value": 1.0 }
+        ]
       },
       "output": "swap"
     },

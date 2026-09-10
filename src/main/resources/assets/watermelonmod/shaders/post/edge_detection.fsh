@@ -10,7 +10,9 @@ layout(std140) uniform SamplerInfo {
 };
 
 layout(std140) uniform EdgeConfig {
-    float Rotation;
+    float K00; float K01; float K02;
+    float K10; float K11; float K12;
+    float K20; float K21; float K22;
 };
 
 out vec4 fragColor;
@@ -29,12 +31,10 @@ void main() {
     float  b = luminanceAt(vec2( 0.0,  1.0));
     float br = luminanceAt(vec2( 1.0,  1.0));
 
-    // Sobel Gx. Rotating this kernel swaps it to Gy or reverses its sign.
-    float gx = (tr + 2.0 * r + br) - (tl + 2.0 * l + bl);
-    float gy = (bl + 2.0 * b + br) - (tl + 2.0 * t + tr);
-    int rotation = int(floor(Rotation + 0.5)) % 4;
-    float convolution = (rotation == 0 || rotation == 2) ? gx : gy;
-    if (rotation == 2 || rotation == 3) convolution = -convolution;
+    // The coefficients come directly from the editable workbench matrix.
+    float convolution = K00 * tl + K01 * t + K02 * tr
+                      + K10 * l  + K11 * luminanceAt(vec2(0.0)) + K12 * r
+                      + K20 * bl + K21 * b + K22 * br;
     float edge = clamp(abs(convolution) * 1.5, 0.0, 1.0);
     fragColor = vec4(vec3(edge), 1.0);
 }
