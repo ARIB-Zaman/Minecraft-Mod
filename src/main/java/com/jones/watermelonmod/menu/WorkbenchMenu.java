@@ -46,7 +46,9 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
             @Override public boolean mayPlace(ItemStack stack) { return stack.getItem() instanceof GogglesItem; }
             @Override public void setChanged() { super.setChanged(); refreshSliderFromStack(); }
         });
-        addStandardInventorySlots(inventory, 8, 126);
+        // Centred in the wider workbench panel; the screen paints a slot well
+        // beneath every one of these item positions.
+        addStandardInventorySlots(inventory, 34, 142);
         for (DataSlot sliderPercent : sliderPercents) addDataSlot(sliderPercent);
         refreshSliderFromStack();
     }

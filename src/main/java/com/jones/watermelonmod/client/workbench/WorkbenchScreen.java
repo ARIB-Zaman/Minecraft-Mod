@@ -24,9 +24,11 @@ import net.minecraft.world.entity.player.Inventory;
  */
 @Environment(EnvType.CLIENT)
 public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu> {
-    private static final int SLIDER_X = 58;
-    private static final int SLIDER_Y = 57;
-    private static final int SLIDER_WIDTH = 100;
+    private static final int SLIDER_X = 70;
+    private static final int SLIDER_Y = 41;
+    private static final int SLIDER_WIDTH = 120;
+    private static final int INVENTORY_X = 34;
+    private static final int INVENTORY_Y = 142;
     private int draggingSlider = -1;
     private static final int ROTATE_X = 67;
     private static final int ROTATE_Y = 91;
@@ -34,8 +36,11 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
     private static final int ROTATE_HEIGHT = 15;
 
     public WorkbenchScreen(WorkbenchMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title, 176, 222);
-        inventoryLabelY = 112;
+        super(menu, inventory, title, 230, 234);
+        titleLabelX = 8;
+        titleLabelY = 8;
+        inventoryLabelX = INVENTORY_X;
+        inventoryLabelY = 124;
     }
 
     @Override
@@ -46,13 +51,18 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
         graphics.fill(x, y, x + imageWidth, y + imageHeight, 0xFFC6C6C6);
         graphics.fill(x + 2, y + 2, x + imageWidth - 2, y + imageHeight - 2, 0xFF8B8B8B);
         graphics.fill(x + 4, y + 4, x + imageWidth - 4, y + imageHeight - 4, 0xFFC6C6C6);
-        graphics.text(font, Component.translatable("container.watermelonmod.workbench"), x + 8, y + 7, 0xFF404040, false);
         graphics.text(font, Component.literal("Goggles"), x + 18, y + 27, 0xFF404040, false);
         // Explicit vanilla-style slot well: the actual item is rendered by
         // AbstractContainerScreen over this frame.
         graphics.fill(x + 22, y + 38, x + 46, y + 62, 0xFF555555);
         graphics.fill(x + 24, y + 40, x + 44, y + 60, 0xFF373737);
         graphics.fill(x + 26, y + 42, x + 42, y + 58, 0xFF8B8B8B);
+
+        // Inventory is a distinct recessed panel, with a visible vanilla-like
+        // well for every actual menu slot.
+        graphics.fill(x + INVENTORY_X - 8, y + INVENTORY_Y - 6, x + INVENTORY_X + 170, y + INVENTORY_Y + 80, 0xFF8B8B8B);
+        graphics.fill(x + INVENTORY_X - 6, y + INVENTORY_Y - 4, x + INVENTORY_X + 168, y + INVENTORY_Y + 78, 0xFFC6C6C6);
+        drawInventorySlots(graphics, x, y);
 
         if (!(menu.gogglesStack().getItem() instanceof GogglesItem goggles)) {
             graphics.text(font, Component.translatable("gui.watermelonmod.workbench.insert_goggles"), x + 58, y + 44, 0xFF555555, false);
@@ -70,7 +80,7 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
             extractSlider(graphics, x, y, goggles, parameter, index, Math.min(3, goggles.pipeline().parameters().size()));
             index++;
         }
-        if (index < 3) graphics.text(font, Component.literal(goggles.pipeline().id().getPath()), x + 58, y + (index > 1 ? 105 : 87), 0xFF555555, false);
+        if (index < 3) graphics.text(font, Component.literal(goggles.pipeline().id().getPath()), x + SLIDER_X, y + (index > 1 ? 116 : 102), 0xFF555555, false);
     }
 
     @Override
@@ -121,23 +131,23 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
                     : parameter.key().equals("intensity")
                         ? Component.translatable("gui.watermelonmod.workbench.greyscale")
                         : Component.literal(parameter.key());
-        int step = count == 3 ? 30 : 25;
-        int labelY = count == 3 ? 20 : 37;
-        int baseTrackY = count == 3 ? 33 : SLIDER_Y;
+        int step = 29;
+        int labelY = 25;
+        int baseTrackY = SLIDER_Y;
         int offsetY = index * step;
         graphics.text(font, label, x + SLIDER_X, y + labelY + offsetY, 0xFF404040, false);
         int trackY = y + baseTrackY + offsetY;
         graphics.fill(x + SLIDER_X, trackY, x + SLIDER_X + SLIDER_WIDTH, trackY + 4, 0xFF555555);
         int knobX = x + SLIDER_X + Math.round((SLIDER_WIDTH - 6) * menu.sliderPercent(index) / 100.0F);
         graphics.fill(knobX, trackY - 4, knobX + 6, trackY + 8, 0xFF2F75B5);
-        graphics.text(font, Component.literal(menu.sliderPercent(index) + "%"), x + 132, trackY + 13, 0xFF404040, false);
+        graphics.text(font, Component.literal(menu.sliderPercent(index) + "%"), x + 198, trackY - 2, 0xFF404040, false);
     }
 
     private int sliderAt(double mouseX, double mouseY) {
         if (mouseX < leftPos + SLIDER_X || mouseX > leftPos + SLIDER_X + SLIDER_WIDTH) return -1;
         int count = menu.gogglesStack().getItem() instanceof GogglesItem goggles ? Math.min(3, goggles.pipeline().parameters().size()) : 0;
-        int step = count == 3 ? 30 : 25;
-        int baseTrackY = count == 3 ? 33 : SLIDER_Y;
+        int step = 29;
+        int baseTrackY = SLIDER_Y;
         for (int index = 0; index < count; index++) {
             int trackY = topPos + baseTrackY + index * step;
             if (mouseY >= trackY - 7 && mouseY <= trackY + 11) return index;
@@ -151,6 +161,23 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
         if (percent != menu.sliderPercent(index) && menu.clickMenuButton(minecraft.player, button)) {
             minecraft.gameMode.handleInventoryButtonClick(menu.containerId, button);
         }
+    }
+
+    private void drawInventorySlots(GuiGraphicsExtractor graphics, int x, int y) {
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 9; column++) {
+                drawSlotWell(graphics, x + INVENTORY_X + column * 18, y + INVENTORY_Y + row * 18);
+            }
+        }
+        for (int column = 0; column < 9; column++) {
+            drawSlotWell(graphics, x + INVENTORY_X + column * 18, y + INVENTORY_Y + 58);
+        }
+    }
+
+    private void drawSlotWell(GuiGraphicsExtractor graphics, int x, int y) {
+        graphics.fill(x - 1, y - 1, x + 17, y + 17, 0xFF555555);
+        graphics.fill(x, y, x + 16, y + 16, 0xFF373737);
+        graphics.fill(x + 1, y + 1, x + 15, y + 15, 0xFF8B8B8B);
     }
 
     private void extractConvolutionKernel(GuiGraphicsExtractor graphics, int x, int y, boolean sharpening) {
@@ -170,7 +197,7 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
         graphics.fill(x + ROTATE_X + 1, y + ROTATE_Y + 1, x + ROTATE_X + ROTATE_WIDTH - 1, y + ROTATE_Y + ROTATE_HEIGHT - 1, 0xFF82A9C4);
         Component rotate = Component.translatable("gui.watermelonmod.workbench.rotate_kernel");
         graphics.text(font, rotate, x + ROTATE_X + (ROTATE_WIDTH - font.width(rotate)) / 2, y + ROTATE_Y + 4, 0xFF202020, false);
-        graphics.text(font, Component.literal("Left-click: +1    Right-click: -1   Range: -10 to 10"), x + 35, y + 109, 0xFF555555, false);
+        graphics.text(font, Component.literal("Left-click: +1    Right-click: -1"), x + 35, y + 109, 0xFF555555, false);
     }
 
     private boolean isOverRotateButton(double mouseX, double mouseY) {
