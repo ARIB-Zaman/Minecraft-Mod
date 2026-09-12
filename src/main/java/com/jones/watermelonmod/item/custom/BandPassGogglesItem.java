@@ -27,6 +27,7 @@ public final class BandPassGogglesItem extends GogglesItem {
         // Radius is in cycles-per-pixel: the corner of the centred spectrum is about 0.707.
         parameters.put("low_cutoff", new GogglesParameter("low_cutoff", 0.05F, 0.0F, 0.71F));
         parameters.put("high_cutoff", new GogglesParameter("high_cutoff", 0.25F, 0.0F, 0.71F));
+        parameters.put("spectrum_opacity", new GogglesParameter("spectrum_opacity", 0.75F, 0.0F, 1.0F));
         return parameters;
     }
 }

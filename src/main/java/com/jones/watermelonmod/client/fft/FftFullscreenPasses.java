@@ -4,6 +4,7 @@ import com.jones.watermelonmod.WatermelonMod;
 import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.BindGroupLayout;
+import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderTarget;
@@ -24,7 +25,7 @@ import java.util.OptionalDouble;
 /** Minimal direct renderer for the FFT shaders; it avoids JSON post-chain RGBA8 targets. */
 final class FftFullscreenPasses {
     private final Map<String, RenderPipeline> oneInput = new HashMap<>();
-    private final RenderPipeline unpack;
+    private final Map<String, RenderPipeline> twoInput = new HashMap<>();
     private final GpuBuffer samplerInfo;
     private final GpuBuffer config;
     private final ByteBuffer data = ByteBuffer.allocateDirect(4 * Float.BYTES).order(ByteOrder.nativeOrder());
@@ -34,7 +35,9 @@ final class FftFullscreenPasses {
             oneInput.put(name, create(name, false, GpuFormat.RGBA32_FLOAT));
         }
         oneInput.put("composite", create("composite", false, GpuFormat.RGBA8_UNORM));
-        unpack = create("unpack", true, GpuFormat.RGBA8_UNORM);
+        oneInput.put("spectrum_overlay", createOverlay("spectrum_overlay"));
+        twoInput.put("unpack", create("unpack", true, GpuFormat.RGBA8_UNORM));
+        twoInput.put("spectrum", create("spectrum", true, GpuFormat.RGBA8_UNORM));
         samplerInfo = buffer("FFT sampler info");
         config = buffer("FFT config");
     }
@@ -63,7 +66,7 @@ final class FftFullscreenPasses {
                 () -> "watermelonmod FFT " + shader,
                 output.getColorTextureView(), Optional.empty(),
                 output.useDepth ? output.getDepthTextureView() : null, OptionalDouble.empty())) {
-            pass.setPipeline(unpack);
+            pass.setPipeline(twoInput.get(shader));
             RenderSystem.bindDefaultUniforms(pass);
             pass.setUniform("SamplerInfo", samplerInfo);
             pass.setUniform("FftConfig", config);
@@ -71,6 +74,16 @@ final class FftFullscreenPasses {
             pass.bindTexture("BSampler", blue.getColorTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
             pass.draw(3, 1, 0, 0);
         }
+    }
+
+    /** Converts packed RGB complex coefficients into a persistent display-sized spectrum. */
+    void captureSpectrum(RenderTarget rgSpectrum, RenderTarget blueSpectrum, RenderTarget spectrumOutput) {
+        two("spectrum", rgSpectrum, blueSpectrum, spectrumOutput, 0, 0, 0, 0);
+    }
+
+    /** Alpha-blends a captured spectrum into a corner of the already-composited scene. */
+    void overlaySpectrum(RenderTarget spectrumInput, RenderTarget sceneOutput, float opacity) {
+        one("spectrum_overlay", spectrumInput, sceneOutput, opacity, 0, 0, 0);
     }
 
     private static RenderPipeline create(String shader, boolean twoInputs, GpuFormat outputFormat) {
@@ -87,6 +100,25 @@ final class FftFullscreenPasses {
                 .withLocation(WatermelonMod.id("fft/" + shader))
                 .withColorTargetState(new ColorTargetState(Optional.empty(), outputFormat, ColorTargetState.WRITE_ALL))
                 .withBindGroupLayout(bindings.build())
+                .build();
+        if (!RenderSystem.getDevice().precompilePipeline(pipeline).isValid()) {
+            throw new IllegalStateException("Could not compile FFT shader " + shader);
+        }
+        return pipeline;
+    }
+
+    private static RenderPipeline createOverlay(String shader) {
+        BindGroupLayout bindings = BindGroupLayout.builder()
+                .withSampler("InSampler")
+                .withUniform("SamplerInfo", UniformType.UNIFORM_BUFFER)
+                .withUniform("FftConfig", UniformType.UNIFORM_BUFFER)
+                .build();
+        RenderPipeline pipeline = RenderPipeline.builder(RenderPipelines.POST_PROCESSING_SNIPPET)
+                .withVertexShader(Identifier.withDefaultNamespace("core/screenquad"))
+                .withFragmentShader(WatermelonMod.id("fft/" + shader))
+                .withLocation(WatermelonMod.id("fft/" + shader))
+                .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+                .withBindGroupLayout(bindings)
                 .build();
         if (!RenderSystem.getDevice().precompilePipeline(pipeline).isValid()) {
             throw new IllegalStateException("Could not compile FFT shader " + shader);

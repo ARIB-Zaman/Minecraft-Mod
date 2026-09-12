@@ -66,10 +66,11 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
 
         int index = 0;
         for (GogglesParameter parameter : goggles.pipeline().parameters().values()) {
-            if (index == 2) break;
-            extractSlider(graphics, x, y, goggles, parameter, index++);
+            if (index == 3) break;
+            extractSlider(graphics, x, y, goggles, parameter, index, Math.min(3, goggles.pipeline().parameters().size()));
+            index++;
         }
-        graphics.text(font, Component.literal(goggles.pipeline().id().getPath()), x + 58, y + (index > 1 ? 105 : 87), 0xFF555555, false);
+        if (index < 3) graphics.text(font, Component.literal(goggles.pipeline().id().getPath()), x + 58, y + (index > 1 ? 105 : 87), 0xFF555555, false);
     }
 
     @Override
@@ -112,28 +113,33 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
         return super.mouseReleased(event);
     }
 
-    private void extractSlider(GuiGraphicsExtractor graphics, int x, int y, GogglesItem goggles, GogglesParameter parameter, int index) {
+    private void extractSlider(GuiGraphicsExtractor graphics, int x, int y, GogglesItem goggles, GogglesParameter parameter, int index, int count) {
         Component label = goggles instanceof BandPassGogglesItem
-                ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.band_low_cutoff" : "gui.watermelonmod.workbench.band_high_cutoff")
+                ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.band_low_cutoff" : index == 1 ? "gui.watermelonmod.workbench.band_high_cutoff" : "gui.watermelonmod.workbench.spectrum_opacity")
                 : goggles instanceof FrequencyFilterGogglesItem
-                    ? Component.translatable("gui.watermelonmod.workbench.frequency_cutoff")
+                    ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.frequency_cutoff" : "gui.watermelonmod.workbench.spectrum_opacity")
                     : parameter.key().equals("intensity")
                         ? Component.translatable("gui.watermelonmod.workbench.greyscale")
                         : Component.literal(parameter.key());
-        int offsetY = index * 25;
-        graphics.text(font, label, x + SLIDER_X, y + 37 + offsetY, 0xFF404040, false);
-        int trackY = y + SLIDER_Y + offsetY;
+        int step = count == 3 ? 30 : 25;
+        int labelY = count == 3 ? 20 : 37;
+        int baseTrackY = count == 3 ? 33 : SLIDER_Y;
+        int offsetY = index * step;
+        graphics.text(font, label, x + SLIDER_X, y + labelY + offsetY, 0xFF404040, false);
+        int trackY = y + baseTrackY + offsetY;
         graphics.fill(x + SLIDER_X, trackY, x + SLIDER_X + SLIDER_WIDTH, trackY + 4, 0xFF555555);
         int knobX = x + SLIDER_X + Math.round((SLIDER_WIDTH - 6) * menu.sliderPercent(index) / 100.0F);
         graphics.fill(knobX, trackY - 4, knobX + 6, trackY + 8, 0xFF2F75B5);
-        graphics.text(font, Component.literal(menu.sliderPercent(index) + "%"), x + 132, y + 70 + offsetY, 0xFF404040, false);
+        graphics.text(font, Component.literal(menu.sliderPercent(index) + "%"), x + 132, trackY + 13, 0xFF404040, false);
     }
 
     private int sliderAt(double mouseX, double mouseY) {
         if (mouseX < leftPos + SLIDER_X || mouseX > leftPos + SLIDER_X + SLIDER_WIDTH) return -1;
-        int count = menu.gogglesStack().getItem() instanceof GogglesItem goggles ? Math.min(2, goggles.pipeline().parameters().size()) : 0;
+        int count = menu.gogglesStack().getItem() instanceof GogglesItem goggles ? Math.min(3, goggles.pipeline().parameters().size()) : 0;
+        int step = count == 3 ? 30 : 25;
+        int baseTrackY = count == 3 ? 33 : SLIDER_Y;
         for (int index = 0; index < count; index++) {
-            int trackY = topPos + SLIDER_Y + index * 25;
+            int trackY = topPos + baseTrackY + index * step;
             if (mouseY >= trackY - 7 && mouseY <= trackY + 11) return index;
         }
         return -1;

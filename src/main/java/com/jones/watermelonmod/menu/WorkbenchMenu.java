@@ -28,7 +28,7 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
     private static final int PLAYER_SLOT_START = 1;
     private static final int PLAYER_SLOT_END = 37;
     private final Container workbench;
-    private final DataSlot[] sliderPercents = {DataSlot.standalone(), DataSlot.standalone()};
+    private final DataSlot[] sliderPercents = {DataSlot.standalone(), DataSlot.standalone(), DataSlot.standalone()};
 
     public WorkbenchMenu(int containerId, Inventory inventory) {
         this(containerId, inventory, new SimpleContainer(1));
@@ -116,9 +116,13 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
         for (DataSlot sliderPercent : sliderPercents) sliderPercent.set(0);
     }
 
-    private static int sliderParameterIndex(int buttonId) {
+    private int sliderParameterIndex(int buttonId) {
         if (buttonId >= 0 && buttonId <= 100) return 0;
-        if (buttonId >= ADDITIONAL_SLIDER_BUTTON_BASE && buttonId <= ADDITIONAL_SLIDER_BUTTON_BASE + 100) return 1;
+        if (buttonId >= ADDITIONAL_SLIDER_BUTTON_BASE) {
+            int index = buttonId / ADDITIONAL_SLIDER_BUTTON_BASE;
+            int percent = buttonId % ADDITIONAL_SLIDER_BUTTON_BASE;
+            if (index < sliderPercents.length && percent <= 100) return index;
+        }
         return -1;
     }
 

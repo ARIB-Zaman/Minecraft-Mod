@@ -23,6 +23,7 @@ public final class GpuFftProcessor {
     private static boolean active;
     private static FilterMode filterMode = FilterMode.GAUSSIAN_LOW_PASS;
     private static float cutoff = 0.20F;
+    private static float spectrumOpacity;
     private static float bandLowCutoff = 0.05F;
     private static float bandHighCutoff = 0.25F;
     private static Targets targets;
@@ -37,6 +38,7 @@ public final class GpuFftProcessor {
             if (stack.getItem() instanceof FrequencyFilterGogglesItem) {
                 filterMode = FilterMode.GAUSSIAN_LOW_PASS;
                 cutoff = GogglesSettingsService.get(stack).value("cutoff", 0.20F);
+                spectrumOpacity = GogglesSettingsService.get(stack).value("spectrum_opacity", 0.75F);
                 return true;
             }
             if (stack.getItem() instanceof BandPassGogglesItem) {
@@ -45,6 +47,7 @@ public final class GpuFftProcessor {
                 float second = GogglesSettingsService.get(stack).value("high_cutoff", 0.25F);
                 bandLowCutoff = Math.min(first, second);
                 bandHighCutoff = Math.max(first, second);
+                spectrumOpacity = GogglesSettingsService.get(stack).value("spectrum_opacity", 0.75F);
                 return true;
             }
             return false;
@@ -62,6 +65,8 @@ public final class GpuFftProcessor {
 
         RenderTarget rg = transform(targets.rgA, targets.rgB, targets.rgA, targets.rgB, false);
         RenderTarget blue = transform(targets.bA, targets.bB, targets.bA, targets.bB, false);
+        // Capture before filtering/reorder overwrite these raw, centred FFT coefficients.
+        if (spectrumOpacity > 0.0F) passes.captureSpectrum(rg, blue, targets.spectrum);
         String filterShader = filterMode == FilterMode.HARD_BAND_PASS ? "band_pass" : "filter";
         float filterLow = filterMode == FilterMode.HARD_BAND_PASS ? bandLowCutoff : cutoff;
         float filterHigh = filterMode == FilterMode.HARD_BAND_PASS ? bandHighCutoff : 0.0F;
@@ -74,6 +79,7 @@ public final class GpuFftProcessor {
 
         passes.two("unpack", rg, blue, targets.reconstructed, 0, 0, 0, 0);
         passes.one("composite", targets.reconstructed, mainTarget, 0, 0, 0, 0);
+        if (spectrumOpacity > 0.0F) passes.overlaySpectrum(targets.spectrum, mainTarget, spectrumOpacity);
     }
 
     private static RenderTarget transform(RenderTarget source, RenderTarget destination, RenderTarget first, RenderTarget second, boolean inverse) {
@@ -106,6 +112,8 @@ public final class GpuFftProcessor {
         final TextureTarget bA = target("FFT B ping", GpuFormat.RGBA32_FLOAT);
         final TextureTarget bB = target("FFT B pong", GpuFormat.RGBA32_FLOAT);
         final TextureTarget reconstructed = target("FFT reconstructed", GpuFormat.RGBA8_UNORM);
+        // A compact, persistent snapshot of the forward spectrum for the PIP overlay.
+        final TextureTarget spectrum = new TextureTarget("watermelonmod FFT spectrum", 256, 128, false, GpuFormat.RGBA8_UNORM);
 
         private static TextureTarget target(String name, GpuFormat format) {
             return new TextureTarget("watermelonmod " + name, WIDTH, HEIGHT, false, format);

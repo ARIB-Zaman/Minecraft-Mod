@@ -25,6 +25,8 @@ public final class FrequencyFilterGogglesItem extends GogglesItem {
     private static Map<String, GogglesParameter> parameters() {
         Map<String, GogglesParameter> parameters = new LinkedHashMap<>();
         parameters.put("cutoff", new GogglesParameter("cutoff", 0.20F, 0.01F, 1.0F));
+        // Zero disables the overlay while retaining a simple slider-based UI.
+        parameters.put("spectrum_opacity", new GogglesParameter("spectrum_opacity", 0.75F, 0.0F, 1.0F));
         return parameters;
     }
 }

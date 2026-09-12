@@ -15,6 +15,7 @@
   "gui.watermelonmod.workbench.edge_kernel" : "Sobel convolution kernel",
   "gui.watermelonmod.workbench.sharpen_kernel" : "Sharpening convolution kernel",
   "gui.watermelonmod.workbench.frequency_cutoff" : "FFT low-pass cutoff",
+  "gui.watermelonmod.workbench.spectrum_opacity" : "Spectrum overlay opacity",
   "gui.watermelonmod.workbench.band_low_cutoff" : "Band-pass low cutoff",
   "gui.watermelonmod.workbench.band_high_cutoff" : "Band-pass high cutoff",
   "gui.watermelonmod.workbench.rotate_kernel" : "Rotate 90°",
