@@ -4,6 +4,7 @@ import com.jones.watermelonmod.WatermelonMod;
 import com.jones.watermelonmod.goggles.GogglesEquipment;
 import com.jones.watermelonmod.goggles.GogglesSettingsService;
 import com.jones.watermelonmod.item.custom.FrequencyFilterGogglesItem;
+import com.jones.watermelonmod.item.custom.HighPassGogglesItem;
 import com.jones.watermelonmod.item.custom.BandPassGogglesItem;
 import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.pipeline.RenderTarget;
@@ -41,6 +42,12 @@ public final class GpuFftProcessor {
                 spectrumOpacity = GogglesSettingsService.get(stack).value("spectrum_opacity", 0.75F);
                 return true;
             }
+            if (stack.getItem() instanceof HighPassGogglesItem) {
+                filterMode = FilterMode.GAUSSIAN_HIGH_PASS;
+                cutoff = GogglesSettingsService.get(stack).value("cutoff", 0.10F);
+                spectrumOpacity = GogglesSettingsService.get(stack).value("spectrum_opacity", 0.75F);
+                return true;
+            }
             if (stack.getItem() instanceof BandPassGogglesItem) {
                 filterMode = FilterMode.HARD_BAND_PASS;
                 float first = GogglesSettingsService.get(stack).value("low_cutoff", 0.05F);
@@ -69,7 +76,10 @@ public final class GpuFftProcessor {
         if (spectrumOpacity > 0.0F) passes.captureSpectrum(rg, blue, targets.spectrum);
         String filterShader = filterMode == FilterMode.HARD_BAND_PASS ? "band_pass" : "filter";
         float filterLow = filterMode == FilterMode.HARD_BAND_PASS ? bandLowCutoff : cutoff;
-        float filterHigh = filterMode == FilterMode.HARD_BAND_PASS ? bandHighCutoff : 0.0F;
+        // For the "filter" shader this second slot doubles as the invert flag (high-pass when > 0.5);
+        // for "band_pass" it is genuinely the upper cutoff. The two shaders never share an invocation.
+        float filterHigh = filterMode == FilterMode.HARD_BAND_PASS ? bandHighCutoff
+                : filterMode == FilterMode.GAUSSIAN_HIGH_PASS ? 1.0F : 0.0F;
         rg = passes.one(filterShader, rg, other(rg, targets.rgA, targets.rgB), filterLow, filterHigh, 0, 0);
         blue = passes.one(filterShader, blue, other(blue, targets.bA, targets.bB), filterLow, filterHigh, 0, 0);
         rg = passes.one("reorder", rg, other(rg, targets.rgA, targets.rgB), 0, 0, 0, 0);
@@ -122,6 +132,7 @@ public final class GpuFftProcessor {
 
     private enum FilterMode {
         GAUSSIAN_LOW_PASS,
+        GAUSSIAN_HIGH_PASS,
         HARD_BAND_PASS
     }
 }

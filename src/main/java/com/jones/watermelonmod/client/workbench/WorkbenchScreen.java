@@ -6,6 +6,7 @@ import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
 import com.jones.watermelonmod.item.custom.ConvolutionGogglesItem;
 import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
 import com.jones.watermelonmod.item.custom.FrequencyFilterGogglesItem;
+import com.jones.watermelonmod.item.custom.HighPassGogglesItem;
 import com.jones.watermelonmod.item.custom.BandPassGogglesItem;
 import com.jones.watermelonmod.menu.WorkbenchMenu;
 import net.fabricmc.api.EnvType;
@@ -128,9 +129,11 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
                 ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.band_low_cutoff" : index == 1 ? "gui.watermelonmod.workbench.band_high_cutoff" : "gui.watermelonmod.workbench.spectrum_opacity")
                 : goggles instanceof FrequencyFilterGogglesItem
                     ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.frequency_cutoff" : "gui.watermelonmod.workbench.spectrum_opacity")
-                    : parameter.key().equals("intensity")
-                        ? Component.translatable("gui.watermelonmod.workbench.greyscale")
-                        : Component.literal(parameter.key());
+                    : goggles instanceof HighPassGogglesItem
+                        ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.high_pass_cutoff" : "gui.watermelonmod.workbench.spectrum_opacity")
+                        : parameter.key().equals("intensity")
+                            ? Component.translatable("gui.watermelonmod.workbench.greyscale")
+                            : Component.literal(parameter.key());
         int step = 29;
         int labelY = 25;
         int baseTrackY = SLIDER_Y;
