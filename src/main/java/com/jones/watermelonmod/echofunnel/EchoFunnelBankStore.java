@@ -12,6 +12,7 @@ import java.util.List;
 public record EchoFunnelBankStore(List<List<BankedFrequency>> banks) {
     public static final int BANK_COUNT = 4;
     public static final double CAPACITY = 1.0;
+    public static final int POINT_CAPACITY = 20;
     public static final Codec<EchoFunnelBankStore> CODEC = BankedFrequency.CODEC.listOf().listOf().comapFlatMap(
             banks -> banks.size() == BANK_COUNT && banks.stream().allMatch(EchoFunnelBankStore::isValidBank)
                     ? DataResult.success(new EchoFunnelBankStore(banks))
@@ -43,6 +44,35 @@ public record EchoFunnelBankStore(List<List<BankedFrequency>> banks) {
 
     public double fill(int bank) {
         return banks.get(bank).stream().mapToDouble(BankedFrequency::normalizedAmplitude).sum();
+    }
+
+    public int points(int bank) {
+        return (int) Math.floor(fill(bank) * POINT_CAPACITY + 1.0E-9);
+    }
+
+    public boolean canAfford(List<Integer> costs) {
+        return costs.size() == BANK_COUNT && java.util.stream.IntStream.range(0, BANK_COUNT).allMatch(bank -> points(bank) >= costs.get(bank));
+    }
+
+    /** Deducts an affordable point cost while preserving the stored-bin history. */
+    public EchoFunnelBankStore withdraw(List<Integer> costs) {
+        if (!canAfford(costs)) {
+            throw new IllegalStateException("Insufficient Echo Funnel bank points");
+        }
+        List<List<BankedFrequency>> updated = new java.util.ArrayList<>(BANK_COUNT);
+        for (int bank = 0; bank < BANK_COUNT; bank++) {
+            double remaining = costs.get(bank) / (double) POINT_CAPACITY;
+            List<BankedFrequency> updatedBank = new java.util.ArrayList<>();
+            for (BankedFrequency frequency : banks.get(bank)) {
+                double retained = Math.max(0.0, frequency.normalizedAmplitude() - remaining);
+                remaining = Math.max(0.0, remaining - frequency.normalizedAmplitude());
+                if (retained > 1.0E-9) {
+                    updatedBank.add(new BankedFrequency(frequency.bin(), retained));
+                }
+            }
+            updated.add(updatedBank);
+        }
+        return new EchoFunnelBankStore(updated);
     }
 
     /** Adds the available portion of a frequency; overflow simply fills the bank. */

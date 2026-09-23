@@ -4,6 +4,8 @@ import com.jones.watermelonmod.echofunnel.BankedFrequency;
 import com.jones.watermelonmod.echofunnel.CapturedSignal;
 import com.jones.watermelonmod.echofunnel.EchoFunnelBankStore;
 import com.jones.watermelonmod.echofunnel.EchoFunnelCaptureStore;
+import com.jones.watermelonmod.echofunnel.RewardCatalog;
+import com.jones.watermelonmod.echofunnel.RewardOffer;
 import com.jones.watermelonmod.item.ModDataComponents;
 import com.jones.watermelonmod.item.ModItems;
 import com.jones.watermelonmod.signal.DiscreteFourierTransform;
@@ -23,8 +25,11 @@ public final class EchoFunnelNetworking {
 
     public static void initialize() {
         PayloadTypeRegistry.serverboundPlay().register(BankEchoFunnelSignalPayload.TYPE, BankEchoFunnelSignalPayload.STREAM_CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(RedeemEchoFunnelRewardPayload.TYPE, RedeemEchoFunnelRewardPayload.STREAM_CODEC);
         ServerPlayNetworking.registerGlobalReceiver(BankEchoFunnelSignalPayload.TYPE, (payload, context) ->
                 bank(context.player(), payload));
+        ServerPlayNetworking.registerGlobalReceiver(RedeemEchoFunnelRewardPayload.TYPE, (payload, context) ->
+                redeem(context.player(), payload));
     }
 
     private static void bank(ServerPlayer player, BankEchoFunnelSignalPayload payload) {
@@ -57,5 +62,27 @@ public final class EchoFunnelNetworking {
         funnel.set(ModDataComponents.ECHO_FUNNEL_CAPTURE_STORE,
                 updatedCapture.isExhausted() ? captures.remove(payload.signalSlot()) : captures.replace(payload.signalSlot(), updatedCapture));
         player.sendSystemMessage(Component.translatable("message.watermelonmod.echo_funnel.banked"));
+    }
+
+    private static void redeem(ServerPlayer player, RedeemEchoFunnelRewardPayload payload) {
+        if (payload.offerIndex() < 0 || payload.offerIndex() >= RewardCatalog.OFFERS.size()) {
+            return;
+        }
+        ItemStack funnel = player.getMainHandItem();
+        if (!funnel.is(ModItems.ECHO_FUNNEL)) {
+            return;
+        }
+        RewardOffer offer = RewardCatalog.OFFERS.get(payload.offerIndex());
+        EchoFunnelBankStore banks = funnel.getOrDefault(ModDataComponents.ECHO_FUNNEL_BANK_STORE, EchoFunnelBankStore.empty());
+        if (!banks.canAfford(offer.bankCosts())) {
+            player.sendSystemMessage(Component.translatable("message.watermelonmod.echo_funnel.insufficient_points"));
+            return;
+        }
+        funnel.set(ModDataComponents.ECHO_FUNNEL_BANK_STORE, banks.withdraw(offer.bankCosts()));
+        ItemStack reward = offer.createStack();
+        if (!player.getInventory().add(reward)) {
+            player.drop(reward, false);
+        }
+        player.sendSystemMessage(Component.translatable("message.watermelonmod.echo_funnel.redeemed"));
     }
 }
