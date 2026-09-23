@@ -32,12 +32,13 @@ public final class SonicRadiationAttackExecutor {
     }
 
     public void beginCharge(RadiationWardenEntity source) {
+        source.triggerTendrilPulse();
         source.level().broadcastEntityEvent(source, (byte) 62);
         source.playSound(SoundEvents.WARDEN_SONIC_CHARGE, 3.0F, 1.0F);
     }
 
     public boolean fire(ServerLevel level, RadiationWardenEntity source, LivingEntity target, SonicRadiationAttackDefinition definition) {
-        if (!target.isAlive() || !isInRange(source, target, definition)) {
+        if (!target.isAlive()) {
             return false;
         }
         Vec3 origin = source.position().add(source.getAttachments().get(EntityAttachment.WARDEN_CHEST, 0, source.getYRot()));
@@ -53,7 +54,10 @@ public final class SonicRadiationAttackExecutor {
         );
         renderVanillaStyleBeam(level, origin, delta, direction);
         source.playSound(SoundEvents.WARDEN_SONIC_BOOM, 3.0F, 1.0F);
-        if (IncomingAttackResolver.resolve(level, target, attack, level.damageSources().sonicBoom(source), definition.damage())) {
+        // A target may dodge the damage range during the charge, but cannot
+        // cancel the already-committed beam, its sound, or its animation.
+        if (isInRange(source, target, definition)
+                && IncomingAttackResolver.resolve(level, target, attack, level.damageSources().sonicBoom(source), definition.damage())) {
             double vertical = definition.verticalKnockback() * (1.0 - target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
             double horizontal = definition.horizontalKnockback() * (1.0 - target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
             target.push(direction.x() * horizontal, direction.y() * vertical, direction.z() * horizontal);

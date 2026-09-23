@@ -36,4 +36,10 @@ public final class BossCombatController {
         }
         return attackSelector.select(profile.subphase(state), boss.getRandom());
     }
+
+    /** Whether a named attack belongs to the boss's currently active subphase. */
+    public boolean isAttackEnabled(RadiationWardenEntity boss, Identifier attackId) {
+        BossState state = boss.bossState();
+        return profile.id().equals(state.profileId()) && profile.subphase(state).attackIds().contains(attackId);
+    }
 }

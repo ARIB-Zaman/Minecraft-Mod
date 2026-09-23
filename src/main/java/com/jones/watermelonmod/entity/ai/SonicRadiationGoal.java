@@ -32,13 +32,16 @@ public final class SonicRadiationGoal extends Goal {
         target = boss.getTarget();
         return !boss.isFreezeBreezeFrozen()
                 && boss.tickCount >= nextAvailableTick
-                && boss.selectAttackId().filter(definition.id()::equals).isPresent()
+                && boss.isAttackEnabled(definition.id())
                 && target != null
+                && !boss.shouldPreferMelee(target)
                 && executor.isInRange(boss, target, definition);
     }
 
     @Override
     public boolean canContinueToUse() {
+        // Beginning the charge commits the Warden to firing. Range and melee
+        // preference decide whether it can start, never whether it may abort.
         return !boss.isFreezeBreezeFrozen() && target != null && target.isAlive() && !fired;
     }
 
@@ -64,7 +67,7 @@ public final class SonicRadiationGoal extends Goal {
 
     @Override
     public void stop() {
-        nextAvailableTick = boss.tickCount + definition.cooldownTicks();
+        nextAvailableTick = boss.tickCount + (fired ? definition.cooldownTicks() : 10);
         target = null;
     }
 }

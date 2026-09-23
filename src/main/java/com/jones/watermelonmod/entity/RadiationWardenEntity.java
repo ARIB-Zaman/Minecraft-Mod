@@ -4,15 +4,22 @@ import com.jones.watermelonmod.boss.BossState;
 import com.jones.watermelonmod.boss.BossCombatController;
 import com.jones.watermelonmod.boss.RadiationWardenProfile;
 import com.jones.watermelonmod.entity.ai.ChaseTargetGoal;
+import com.jones.watermelonmod.entity.ai.RadiationWardenMeleeGoal;
 import com.jones.watermelonmod.entity.ai.SonicRadiationGoal;
 import net.minecraft.resources.Identifier;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.BossEvent;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.AnimationState;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -24,8 +31,10 @@ import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -38,6 +47,11 @@ public final class RadiationWardenEntity extends Monster {
     private BossState bossState = RadiationWardenProfile.initialState();
     private final BossCombatController combatController = new BossCombatController(RadiationWardenProfile.INITIAL);
     public final AnimationState sonicBoomAnimationState = new AnimationState();
+    public final AnimationState attackAnimationState = new AnimationState();
+    private int tendrilAnimation;
+    private int tendrilAnimationO;
+    private int heartAnimation;
+    private int heartAnimationO;
     private final ServerBossEvent bossEvent = new ServerBossEvent(
             Mth.createInsecureUUID(random),
             getDisplayName(),
@@ -72,6 +86,17 @@ public final class RadiationWardenEntity extends Monster {
         return combatController.selectAttack(this);
     }
 
+    /** Allows phase/subphase definitions to opt an attack in or out without changing AI code. */
+    public boolean isAttackEnabled(Identifier attackId) {
+        return combatController.isAttackEnabled(this, attackId);
+    }
+
+    /** The close range in which melee must take priority over every ranged attack. */
+    public boolean shouldPreferMelee(LivingEntity target) {
+        double range = RadiationWardenProfile.MELEE.engagementRange();
+        return target.isAlive() && distanceToSqr(target) <= range * range;
+    }
+
     /** Applies the short hard-stun used by Freeze Breeze. */
     public void freezeByBreeze(int ticks) {
         entityData.set(FREEZE_BREEZE_TICKS, Math.max(entityData.get(FREEZE_BREEZE_TICKS), ticks));
@@ -83,6 +108,14 @@ public final class RadiationWardenEntity extends Monster {
         return entityData.get(FREEZE_BREEZE_TICKS) > 0;
     }
 
+    /** Starts the Warden-style tendril flash used when the sonic attack begins charging. */
+    public void triggerTendrilPulse() {
+        if (!level().isClientSide()) {
+            level().broadcastEntityEvent(this, (byte) 61);
+            playSound(SoundEvents.WARDEN_TENDRIL_CLICKS, 4.0F, getVoicePitch());
+        }
+    }
+
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
@@ -91,9 +124,10 @@ public final class RadiationWardenEntity extends Monster {
 
     @Override
     protected void registerGoals() {
-        goalSelector.addGoal(0, new SonicRadiationGoal(this, RadiationWardenProfile.SONIC_RADIATION, new com.jones.watermelonmod.attack.sonic.SonicRadiationAttackExecutor()));
-        goalSelector.addGoal(1, new ChaseTargetGoal(this, 1.0, 3.5F));
-        goalSelector.addGoal(2, new LookAtPlayerGoal(this, Player.class, 24.0F, 1.0F));
+        goalSelector.addGoal(0, new RadiationWardenMeleeGoal(this, RadiationWardenProfile.MELEE));
+        goalSelector.addGoal(1, new SonicRadiationGoal(this, RadiationWardenProfile.SONIC_RADIATION, new com.jones.watermelonmod.attack.sonic.SonicRadiationAttackExecutor()));
+        goalSelector.addGoal(2, new ChaseTargetGoal(this, 1.0, 3.5F));
+        goalSelector.addGoal(3, new LookAtPlayerGoal(this, Player.class, 24.0F, 1.0F));
         targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Player.class, true));
     }
 
@@ -112,12 +146,85 @@ public final class RadiationWardenEntity extends Monster {
     }
 
     @Override
+    public void tick() {
+        super.tick();
+        if (!level().isClientSide()) {
+            return;
+        }
+
+        // The normal Warden's calm heartbeat is a 40-tick rhythm. Keeping this
+        // client-local prevents duplicate heartbeat sounds in multiplayer.
+        if (tickCount % 40 == 0) {
+            heartAnimation = 10;
+            if (!isSilent()) {
+                level().playLocalSound(getX(), getY(), getZ(), SoundEvents.WARDEN_HEARTBEAT,
+                        getSoundSource(), 5.0F, getVoicePitch(), false);
+            }
+        }
+        tendrilAnimationO = tendrilAnimation;
+        if (tendrilAnimation > 0) {
+            tendrilAnimation--;
+        }
+        heartAnimationO = heartAnimation;
+        if (heartAnimation > 0) {
+            heartAnimation--;
+        }
+    }
+
+    /** Client renderer hook matching the vanilla Warden tendril overlay timing. */
+    public float getTendrilAnimation(float partialTicks) {
+        return Mth.lerp(partialTicks, tendrilAnimationO, tendrilAnimation) / 10.0F;
+    }
+
+    /** Client renderer hook matching the vanilla Warden heart overlay timing. */
+    public float getHeartAnimation(float partialTicks) {
+        return Mth.lerp(partialTicks, heartAnimationO, heartAnimation) / 10.0F;
+    }
+
+    @Override
     public void handleEntityEvent(byte id) {
-        if (id == 62) {
+        if (id == 4) {
+            attackAnimationState.start(tickCount);
+        } else if (id == 61) {
+            tendrilAnimation = 10;
+        } else if (id == 62) {
             sonicBoomAnimationState.start(tickCount);
         } else {
             super.handleEntityEvent(id);
         }
+    }
+
+    @Override
+    protected float getSoundVolume() {
+        return 4.0F;
+    }
+
+    @Override
+    protected @Nullable SoundEvent getAmbientSound() {
+        return SoundEvents.WARDEN_AMBIENT;
+    }
+
+    @Override
+    protected SoundEvent getHurtSound(DamageSource source) {
+        return SoundEvents.WARDEN_HURT;
+    }
+
+    @Override
+    protected SoundEvent getDeathSound() {
+        return SoundEvents.WARDEN_DEATH;
+    }
+
+    @Override
+    protected void playStepSound(BlockPos pos, BlockState blockState) {
+        playSound(SoundEvents.WARDEN_STEP, 10.0F, 1.0F);
+    }
+
+    /** Uses the vanilla Warden's impact sound and client attack animation event. */
+    @Override
+    public boolean doHurtTarget(ServerLevel level, Entity target) {
+        level.broadcastEntityEvent(this, (byte) 4);
+        playSound(SoundEvents.WARDEN_ATTACK_IMPACT, 10.0F, getVoicePitch());
+        return super.doHurtTarget(level, target);
     }
 
     @Override
