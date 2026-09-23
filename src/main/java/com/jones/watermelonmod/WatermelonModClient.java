@@ -9,7 +9,10 @@ import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
 import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
 import com.jones.watermelonmod.client.workbench.WorkbenchScreen;
 import com.jones.watermelonmod.menu.ModMenus;
+import com.jones.watermelonmod.client.entity.RadiationWardenRenderer;
+import com.jones.watermelonmod.entity.ModEntities;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.gui.screens.MenuScreens;
 
@@ -17,6 +20,7 @@ import net.minecraft.client.gui.screens.MenuScreens;
 public final class WatermelonModClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        EntityRendererRegistry.register(ModEntities.RADIATION_WARDEN, RadiationWardenRenderer::new);
         MenuScreens.register(ModMenus.WORKBENCH, WorkbenchScreen::new);
         GogglesPipelineRegistry.register(
                 GreyscaleGogglesItem.PIPELINE_ID,

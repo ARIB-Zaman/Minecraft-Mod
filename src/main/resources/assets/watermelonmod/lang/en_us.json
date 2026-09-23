@@ -5,7 +5,9 @@
   "item.watermelonmod.sharpening_goggles" : "Sharpening Goggles",
   "item.watermelonmod.frequency_filter_goggles" : "Frequency Filter Goggles",
   "item.watermelonmod.band_pass_goggles" : "Band-pass Filter Goggles",
+  "item.watermelonmod.radiation_warden_spawn_egg" : "Radiation Warden Spawn Egg",
 
+  "entity.watermelonmod.radiation_warden": "Radiation Warden",
 
   "block.watermelonmod.first_block" : "First custom block",
   "block.watermelonmod.workbench" : "Goggles Workbench",
