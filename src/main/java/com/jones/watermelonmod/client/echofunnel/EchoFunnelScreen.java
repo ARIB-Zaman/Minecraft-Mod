@@ -1,18 +1,23 @@
 package com.jones.watermelonmod.client.echofunnel;
 
 import com.jones.watermelonmod.echofunnel.EchoFunnelCaptureStore;
+import com.jones.watermelonmod.echofunnel.EchoFunnelBankStore;
+import com.jones.watermelonmod.echofunnel.CapturedSignal;
 import com.jones.watermelonmod.item.ModDataComponents;
 import com.jones.watermelonmod.item.ModItems;
+import com.jones.watermelonmod.network.BankEchoFunnelSignalPayload;
 import com.jones.watermelonmod.signal.DiscreteFourierTransform;
 import com.jones.watermelonmod.signal.SonicSignal;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Read-only signal viewer. Future server-backed DSP controls can be added
@@ -69,12 +74,26 @@ public final class EchoFunnelScreen extends Screen {
         if (signal == null) {
             graphics.text(font, Component.translatable("gui.watermelonmod.echo_funnel.no_selection"), chartLeft + 91, chartTop + 31, 0xFFBFBFBF, false);
         } else {
-            renderSpectrum(graphics, signal, chartLeft + 2, chartTop + 2, chartWidth - 4, chartHeight - 4);
+            CapturedSignal capture = selectedCapture();
+            renderSpectrum(graphics, signal, capture == null ? Set.of() : Set.copyOf(capture.bankedBins()), chartLeft + 2, chartTop + 2, chartWidth - 4, chartHeight - 4);
+            renderSpectrumTooltip(graphics, signal, mouseX, mouseY);
         }
 
-        // Reserved workspace for the upcoming frequency selection/extraction section.
+        renderBanks(graphics, left, top);
+    }
+
+    private void renderBanks(GuiGraphicsExtractor graphics, int left, int top) {
         graphics.fill(left + 12, top + 240, left + PANEL_WIDTH - 12, top + PANEL_HEIGHT - 12, 0xFF9A9A9A);
         graphics.fill(left + 14, top + 242, left + PANEL_WIDTH - 14, top + PANEL_HEIGHT - 14, 0xFFBEBEBE);
+        EchoFunnelBankStore banks = currentBanks();
+        for (int bank = 0; bank < EchoFunnelBankStore.BANK_COUNT; bank++) {
+            int y = top + 247 + bank * 16;
+            graphics.text(font, Component.literal("B" + (bank + 1)), left + 20, y + 2, 0xFF404040, false);
+            graphics.fill(left + 38, y, left + 168, y + 10, 0xFF555555);
+            graphics.fill(left + 39, y + 1, left + 167, y + 9, 0xFF242424);
+            int filled = (int) Math.round(128 * Math.min(1.0, banks.fill(bank)));
+            graphics.fill(left + 39, y + 1, left + 39 + filled, y + 9, bankColor(bank));
+        }
     }
 
     @Override
@@ -87,6 +106,18 @@ public final class EchoFunnelScreen extends Screen {
                     selectedSlot = slot < capturedSignals().size() && selectedSlot != slot ? slot : -1;
                     return true;
                 }
+            }
+            int bin = spectrumBinAt(event.x(), event.y());
+            if (bin != -1 && selectedSlot >= 0) {
+                CapturedSignal capture = selectedCapture();
+                if (capture == null || !capture.canBank(bin)) {
+                    return true;
+                }
+                ClientPlayNetworking.send(new BankEchoFunnelSignalPayload(selectedSlot, bin));
+                if (capture.bankedBins().size() + 1 == CapturedSignal.MAX_BANKED_BINS) {
+                    selectedSlot = -1;
+                }
+                return true;
             }
         }
         return super.mouseClicked(event, doubleClick);
@@ -114,8 +145,26 @@ public final class EchoFunnelScreen extends Screen {
     }
 
     private SonicSignal selectedSignal() {
-        List<SonicSignal> signals = capturedSignals();
-        return selectedSlot >= 0 && selectedSlot < signals.size() ? signals.get(selectedSlot) : null;
+        CapturedSignal capture = selectedCapture();
+        return capture == null ? null : capture.signal();
+    }
+
+    private CapturedSignal selectedCapture() {
+        if (minecraft.player == null || !minecraft.player.getMainHandItem().is(ModItems.ECHO_FUNNEL)) {
+            return null;
+        }
+        List<CapturedSignal> captures = minecraft.player.getMainHandItem()
+                .getOrDefault(ModDataComponents.ECHO_FUNNEL_CAPTURE_STORE, EchoFunnelCaptureStore.empty())
+                .captures();
+        return selectedSlot >= 0 && selectedSlot < captures.size() ? captures.get(selectedSlot) : null;
+    }
+
+    private EchoFunnelBankStore currentBanks() {
+        if (minecraft.player == null || !minecraft.player.getMainHandItem().is(ModItems.ECHO_FUNNEL)) {
+            return EchoFunnelBankStore.empty();
+        }
+        return minecraft.player.getMainHandItem()
+                .getOrDefault(ModDataComponents.ECHO_FUNNEL_BANK_STORE, EchoFunnelBankStore.empty());
     }
 
     private int panelLeft() {
@@ -141,14 +190,64 @@ public final class EchoFunnelScreen extends Screen {
         }
     }
 
-    private void renderSpectrum(GuiGraphicsExtractor graphics, SonicSignal signal, int left, int top, int graphWidth, int graphHeight) {
+    private void renderSpectrum(GuiGraphicsExtractor graphics, SonicSignal signal, Set<Integer> bankedBins, int left, int top, int graphWidth, int graphHeight) {
         List<Double> magnitudes = DiscreteFourierTransform.magnitudes(signal);
         double peak = Math.max(magnitudes.stream().mapToDouble(Double::doubleValue).max().orElse(1.0), 1.0E-9);
-        for (int bin = 0; bin < SonicSignal.FFT_SIZE; bin++) {
-            int x = left + bin * (graphWidth - 1) / SonicSignal.FFT_SIZE;
-            int nextX = left + (bin + 1) * (graphWidth - 1) / SonicSignal.FFT_SIZE;
+        for (int displayBin = 0; displayBin < SonicSignal.FFT_SIZE; displayBin++) {
+            int bin = displayToBin(displayBin);
+            int x = left + displayBin * (graphWidth - 1) / SonicSignal.FFT_SIZE;
+            int nextX = left + (displayBin + 1) * (graphWidth - 1) / SonicSignal.FFT_SIZE;
+            graphics.fill(x, top, Math.max(x + 1, nextX), top + graphHeight, mutedBandColor(EchoFunnelBankStore.bankForBin(bin)));
             int barHeight = (int) Math.round(magnitudes.get(bin) / peak * (graphHeight - 2));
             graphics.fill(x, top + graphHeight - barHeight, Math.max(x + 1, nextX), top + graphHeight, 0xFFE65C52);
+            if (bankedBins.contains(bin)) {
+                graphics.fill(x, top, Math.max(x + 1, nextX), top + 2, 0xFFFFD35A);
+            }
         }
+    }
+
+    private void renderSpectrumTooltip(GuiGraphicsExtractor graphics, SonicSignal signal, int mouseX, int mouseY) {
+        int bin = spectrumBinAt(mouseX, mouseY);
+        if (bin == -1) {
+            return;
+        }
+        List<Double> magnitudes = DiscreteFourierTransform.magnitudes(signal);
+        int signedFrequency = bin <= 32 ? bin : bin - SonicSignal.FFT_SIZE;
+        graphics.setTooltipForNextFrame(Component.translatable("gui.watermelonmod.echo_funnel.frequency_detail", signedFrequency,
+                EchoFunnelBankStore.bankForBin(bin) + 1, String.format(java.util.Locale.ROOT, "%.2f", magnitudes.get(bin))), mouseX, mouseY);
+    }
+
+    private int spectrumBinAt(double mouseX, double mouseY) {
+        int left = panelLeft() + 12;
+        int top = panelTop() + 154;
+        int width = PANEL_WIDTH - 24;
+        int height = 72;
+        if (mouseX < left || mouseX >= left + width || mouseY < top || mouseY >= top + height) {
+            return -1;
+        }
+        int displayBin = Math.min(SonicSignal.FFT_SIZE - 1, (int) ((mouseX - left) * SonicSignal.FFT_SIZE / width));
+        return displayToBin(displayBin);
+    }
+
+    private static int displayToBin(int displayBin) {
+        return (displayBin + SonicSignal.FFT_SIZE / 2) % SonicSignal.FFT_SIZE;
+    }
+
+    private static int mutedBandColor(int bank) {
+        return switch (bank) {
+            case 0 -> 0xFF34333A;
+            case 1 -> 0xFF333941;
+            case 2 -> 0xFF3B3933;
+            default -> 0xFF413434;
+        };
+    }
+
+    private static int bankColor(int bank) {
+        return switch (bank) {
+            case 0 -> 0xFF7A76A8;
+            case 1 -> 0xFF5E8FA8;
+            case 2 -> 0xFFA08A57;
+            default -> 0xFFA86464;
+        };
     }
 }

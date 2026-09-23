@@ -3,6 +3,7 @@ package com.jones.watermelonmod.item;
 import com.jones.watermelonmod.WatermelonMod;
 import com.jones.watermelonmod.goggles.GogglesSettings;
 import com.jones.watermelonmod.echofunnel.EchoFunnelCaptureStore;
+import com.jones.watermelonmod.echofunnel.EchoFunnelBankStore;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -17,6 +18,15 @@ public final class ModDataComponents {
             DataComponentType.<EchoFunnelCaptureStore>builder()
                     .persistent(EchoFunnelCaptureStore.CODEC)
                     .networkSynchronized(EchoFunnelCaptureStore.STREAM_CODEC)
+                    .build()
+    );
+
+    public static final DataComponentType<EchoFunnelBankStore> ECHO_FUNNEL_BANK_STORE = Registry.register(
+            BuiltInRegistries.DATA_COMPONENT_TYPE,
+            WatermelonMod.id("echo_funnel_bank_store"),
+            DataComponentType.<EchoFunnelBankStore>builder()
+                    .persistent(EchoFunnelBankStore.CODEC)
+                    .networkSynchronized(EchoFunnelBankStore.STREAM_CODEC)
                     .build()
     );
 

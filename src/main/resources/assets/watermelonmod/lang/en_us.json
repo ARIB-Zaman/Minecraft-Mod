@@ -29,6 +29,10 @@
   ,"gui.watermelonmod.echo_funnel.slot" : "Signal %s"
   ,"gui.watermelonmod.echo_funnel.spectrum" : "Frequency spectrum"
   ,"gui.watermelonmod.echo_funnel.no_selection" : "Select a signal above"
+  ,"gui.watermelonmod.echo_funnel.bank" : "Bank selection (%s/3)"
+  ,"gui.watermelonmod.echo_funnel.frequency_detail" : "Bin %s | Bank %s | Amplitude %s"
   ,"message.watermelonmod.echo_funnel.captured" : "Sonic Radiation captured"
   ,"message.watermelonmod.echo_funnel.full" : "Echo Funnel signal slots are full"
+  ,"message.watermelonmod.echo_funnel.banked" : "Signal frequencies banked"
+  ,"message.watermelonmod.echo_funnel.bank_full" : "A frequency bank lacks capacity"
 }
