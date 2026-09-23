@@ -1,5 +1,8 @@
 package com.jones.watermelonmod.signal;
 
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+
 import java.util.List;
 
 /**
@@ -7,6 +10,15 @@ import java.util.List;
  * DSP code can reconstruct the exact waveform without storing every sample.
  */
 public record SonicSignal(int formatVersion, int sampleRateHz, int durationTicks, List<SignalComponent> components, NoiseSpec noise, long seed) {
+    public static final Codec<SonicSignal> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.INT.fieldOf("format_version").forGetter(SonicSignal::formatVersion),
+            Codec.INT.fieldOf("sample_rate_hz").forGetter(SonicSignal::sampleRateHz),
+            Codec.INT.fieldOf("duration_ticks").forGetter(SonicSignal::durationTicks),
+            SignalComponent.CODEC.listOf().fieldOf("components").forGetter(SonicSignal::components),
+            NoiseSpec.CODEC.fieldOf("noise").forGetter(SonicSignal::noise),
+            Codec.LONG.fieldOf("seed").forGetter(SonicSignal::seed)
+    ).apply(instance, SonicSignal::new));
+
     public SonicSignal {
         if (formatVersion != 1 || sampleRateHz <= 0 || durationTicks <= 0) {
             throw new IllegalArgumentException("Unsupported or invalid Sonic Signal format");

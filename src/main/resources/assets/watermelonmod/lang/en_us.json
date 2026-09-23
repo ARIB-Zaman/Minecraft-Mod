@@ -5,6 +5,7 @@
   "item.watermelonmod.sharpening_goggles" : "Sharpening Goggles",
   "item.watermelonmod.frequency_filter_goggles" : "Frequency Filter Goggles",
   "item.watermelonmod.band_pass_goggles" : "Band-pass Filter Goggles",
+  "item.watermelonmod.echo_funnel" : "Echo Funnel",
   "item.watermelonmod.radiation_warden_spawn_egg" : "Radiation Warden Spawn Egg",
 
   "entity.watermelonmod.radiation_warden": "Radiation Warden",
@@ -22,4 +23,9 @@
   "gui.watermelonmod.workbench.band_high_cutoff" : "Band-pass high cutoff",
   "gui.watermelonmod.workbench.rotate_kernel" : "Rotate 90°",
   "gui.watermelonmod.workbench.orientation" : "Orientation: %s°"
+  ,"gui.watermelonmod.echo_funnel.title" : "Echo Funnel"
+  ,"gui.watermelonmod.echo_funnel.capture_slots" : "Captured signals"
+  ,"gui.watermelonmod.echo_funnel.not_ready" : "Signal processing will be added soon."
+  ,"message.watermelonmod.echo_funnel.captured" : "Sonic Radiation captured"
+  ,"message.watermelonmod.echo_funnel.full" : "Echo Funnel signal slots are full"
 }
