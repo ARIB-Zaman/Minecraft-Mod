@@ -2,8 +2,6 @@ package com.jones.watermelonmod.boss;
 
 import com.jones.watermelonmod.WatermelonMod;
 import com.jones.watermelonmod.attack.sonic.SonicRadiationAttackDefinition;
-import com.jones.watermelonmod.signal.NoiseSpec;
-import com.jones.watermelonmod.signal.SignalComponent;
 import com.jones.watermelonmod.signal.SonicSignalTemplate;
 import net.minecraft.resources.Identifier;
 
@@ -20,15 +18,7 @@ public final class RadiationWardenProfile {
     public static final Identifier SONIC_RADIATION_ID = WatermelonMod.id("sonic_radiation");
     public static final SonicRadiationAttackDefinition SONIC_RADIATION = new SonicRadiationAttackDefinition(
             SONIC_RADIATION_ID, 34, 40, 15.0, 20.0, 10.0F, 2.5, 0.5,
-            new SonicSignalTemplate(
-                    256, 60,
-                    List.of(
-                            new SignalComponent(12.0, 0.90, 0.0),
-                            new SignalComponent(27.0, 0.55, 1.3),
-                            new SignalComponent(43.0, 0.30, 2.2)
-                    ),
-                    new NoiseSpec(0.15)
-            )
+            new SonicSignalTemplate(0.02, 0.08, 0.65, 1.25)
     );
 
     public static final BossProfile INITIAL = new BossProfile(

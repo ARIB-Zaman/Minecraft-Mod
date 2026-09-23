@@ -3,6 +3,9 @@ package com.jones.watermelonmod.echofunnel;
 import com.jones.watermelonmod.signal.SonicSignal;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -16,6 +19,8 @@ public record EchoFunnelCaptureStore(List<SonicSignal> signals) {
                     : DataResult.error(() -> "Echo Funnel may store at most " + CAPACITY + " signals"),
             EchoFunnelCaptureStore::signals
     );
+    public static final StreamCodec<RegistryFriendlyByteBuf, EchoFunnelCaptureStore> STREAM_CODEC =
+            ByteBufCodecs.fromCodecWithRegistries(CODEC);
 
     public EchoFunnelCaptureStore {
         signals = List.copyOf(signals);

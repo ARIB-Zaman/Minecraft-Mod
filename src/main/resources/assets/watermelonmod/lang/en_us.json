@@ -25,7 +25,10 @@
   "gui.watermelonmod.workbench.orientation" : "Orientation: %s°"
   ,"gui.watermelonmod.echo_funnel.title" : "Echo Funnel"
   ,"gui.watermelonmod.echo_funnel.capture_slots" : "Captured signals"
-  ,"gui.watermelonmod.echo_funnel.not_ready" : "Signal processing will be added soon."
+  ,"gui.watermelonmod.echo_funnel.empty" : "Empty"
+  ,"gui.watermelonmod.echo_funnel.slot" : "Signal %s"
+  ,"gui.watermelonmod.echo_funnel.spectrum" : "Frequency spectrum"
+  ,"gui.watermelonmod.echo_funnel.no_selection" : "Select a signal above"
   ,"message.watermelonmod.echo_funnel.captured" : "Sonic Radiation captured"
   ,"message.watermelonmod.echo_funnel.full" : "Echo Funnel signal slots are full"
 }

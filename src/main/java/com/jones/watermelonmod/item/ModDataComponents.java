@@ -16,6 +16,7 @@ public final class ModDataComponents {
             WatermelonMod.id("echo_funnel_capture_store"),
             DataComponentType.<EchoFunnelCaptureStore>builder()
                     .persistent(EchoFunnelCaptureStore.CODEC)
+                    .networkSynchronized(EchoFunnelCaptureStore.STREAM_CODEC)
                     .build()
     );
 
