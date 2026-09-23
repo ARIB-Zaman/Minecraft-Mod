@@ -15,12 +15,16 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.client.renderer.entity.NoopRenderer;
+import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 
 /** Client-only bridge between equipped goggles and Minecraft's post-effect renderer. */
 public final class WatermelonModClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         EntityRendererRegistry.register(ModEntities.RADIATION_WARDEN, RadiationWardenRenderer::new);
+        EntityRendererRegistry.register(ModEntities.SILENCE_BREEZE_PROJECTILE, ThrownItemRenderer::new);
+        EntityRendererRegistry.register(ModEntities.SILENCE_DOME, NoopRenderer::new);
         MenuScreens.register(ModMenus.WORKBENCH, WorkbenchScreen::new);
         GogglesPipelineRegistry.register(
                 GreyscaleGogglesItem.PIPELINE_ID,

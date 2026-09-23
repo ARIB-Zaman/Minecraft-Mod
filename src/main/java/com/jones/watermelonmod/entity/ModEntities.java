@@ -24,6 +24,26 @@ public final class ModEntities {
                     .build(ResourceKey.create(Registries.ENTITY_TYPE, WatermelonMod.id("radiation_warden")))
     );
 
+    public static final EntityType<SilenceBreezeProjectile> SILENCE_BREEZE_PROJECTILE = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE,
+            WatermelonMod.id("silence_breeze_projectile"),
+            EntityType.Builder.<SilenceBreezeProjectile>of(SilenceBreezeProjectile::new, MobCategory.MISC)
+                    .sized(0.25F, 0.25F)
+                    .clientTrackingRange(4)
+                    .updateInterval(10)
+                    .build(ResourceKey.create(Registries.ENTITY_TYPE, WatermelonMod.id("silence_breeze_projectile")))
+    );
+
+    public static final EntityType<SilenceDomeEntity> SILENCE_DOME = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE,
+            WatermelonMod.id("silence_dome"),
+            EntityType.Builder.<SilenceDomeEntity>of(SilenceDomeEntity::new, MobCategory.MISC)
+                    .sized(0.1F, 0.5F)
+                    .clientTrackingRange(10)
+                    .updateInterval(3)
+                    .build(ResourceKey.create(Registries.ENTITY_TYPE, WatermelonMod.id("silence_dome")))
+    );
+
     private ModEntities() {
     }
 
