@@ -54,6 +54,16 @@ public final class ModEntities {
                     .build(ResourceKey.create(Registries.ENTITY_TYPE, WatermelonMod.id("freeze_breeze_projectile")))
     );
 
+    public static final EntityType<DamageBreezeProjectile> DAMAGE_BREEZE_PROJECTILE = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE,
+            WatermelonMod.id("damage_breeze_projectile"),
+            EntityType.Builder.<DamageBreezeProjectile>of(DamageBreezeProjectile::new, MobCategory.MISC)
+                    .sized(0.3125F, 0.3125F)
+                    .clientTrackingRange(4)
+                    .updateInterval(10)
+                    .build(ResourceKey.create(Registries.ENTITY_TYPE, WatermelonMod.id("damage_breeze_projectile")))
+    );
+
     private ModEntities() {
     }
 

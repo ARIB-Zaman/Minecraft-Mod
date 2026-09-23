@@ -8,6 +8,7 @@
   "item.watermelonmod.echo_funnel" : "Echo Funnel",
   "item.watermelonmod.silence_breeze" : "Silence Breeze",
   "item.watermelonmod.freeze_breeze" : "Freeze Breeze",
+  "item.watermelonmod.damage_breeze" : "Damage Breeze",
   "item.watermelonmod.radiation_warden_spawn_egg" : "Radiation Warden Spawn Egg",
 
   "entity.watermelonmod.radiation_warden": "Radiation Warden",

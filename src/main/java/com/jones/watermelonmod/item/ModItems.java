@@ -9,6 +9,7 @@ import com.jones.watermelonmod.item.custom.BandPassGogglesItem;
 import com.jones.watermelonmod.item.custom.EchoFunnelItem;
 import com.jones.watermelonmod.item.custom.SilenceBreezeItem;
 import com.jones.watermelonmod.item.custom.FreezeBreezeItem;
+import com.jones.watermelonmod.item.custom.DamageBreezeItem;
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -31,6 +32,7 @@ public class ModItems {
     public static final Item ECHO_FUNNEL = registerItem("echo_funnel", EchoFunnelItem::new);
     public static final Item SILENCE_BREEZE = registerItem("silence_breeze", properties -> new SilenceBreezeItem(properties.stacksTo(16)));
     public static final Item FREEZE_BREEZE = registerItem("freeze_breeze", properties -> new FreezeBreezeItem(properties.stacksTo(16)));
+    public static final Item DAMAGE_BREEZE = registerItem("damage_breeze", properties -> new DamageBreezeItem(properties.stacksTo(16)));
 
     private static Item registerItem(String name, Function<Item.Properties, Item> function){
         return Registry.register(BuiltInRegistries.ITEM, Identifier.fromNamespaceAndPath(WatermelonMod.MOD_ID, name),
@@ -50,6 +52,7 @@ public class ModItems {
             output.accept(ECHO_FUNNEL);
             output.accept(SILENCE_BREEZE);
             output.accept(FREEZE_BREEZE);
+            output.accept(DAMAGE_BREEZE);
         });
     }
 }
