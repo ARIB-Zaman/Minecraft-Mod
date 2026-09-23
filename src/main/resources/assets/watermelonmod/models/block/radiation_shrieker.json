@@ -1,0 +1,10 @@
+{
+  "parent": "minecraft:block/template_sculk_shrieker",
+  "textures": {
+    "bottom": "watermelonmod:block/radiation_shrieker_bottom",
+    "inner_top": "watermelonmod:block/radiation_shrieker_inner_top",
+    "particle": "watermelonmod:block/radiation_shrieker_bottom",
+    "side": "watermelonmod:block/radiation_shrieker_side",
+    "top": "watermelonmod:block/radiation_shrieker_top"
+  }
+}

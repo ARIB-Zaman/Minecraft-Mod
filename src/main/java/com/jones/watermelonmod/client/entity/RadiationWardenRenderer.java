@@ -73,6 +73,7 @@ public final class RadiationWardenRenderer extends MobRenderer<RadiationWardenEn
         super.extractRenderState(entity, state, partialTicks);
         state.tendrilAnimation = entity.getTendrilAnimation(partialTicks);
         state.heartAnimation = entity.getHeartAnimation(partialTicks);
+        state.emergeAnimationState.copyFrom(entity.emergeAnimationState);
         state.attackAnimationState.copyFrom(entity.attackAnimationState);
         state.sonicBoomAnimationState.copyFrom(entity.sonicBoomAnimationState);
         state.freezeBreezeFrozen = entity.isFreezeBreezeFrozen();

@@ -20,6 +20,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.AnimationState;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -48,6 +49,8 @@ public final class RadiationWardenEntity extends Monster {
     private final BossCombatController combatController = new BossCombatController(RadiationWardenProfile.INITIAL);
     public final AnimationState sonicBoomAnimationState = new AnimationState();
     public final AnimationState attackAnimationState = new AnimationState();
+    public final AnimationState emergeAnimationState = new AnimationState();
+    private int emergenceTicks;
     private int tendrilAnimation;
     private int tendrilAnimationO;
     private int heartAnimation;
@@ -108,6 +111,13 @@ public final class RadiationWardenEntity extends Monster {
         return entityData.get(FREEZE_BREEZE_TICKS) > 0;
     }
 
+    /** Starts the vanilla Warden-style emergence sequence after a shrieker summon. */
+    public void beginEmergence() {
+        emergenceTicks = 134;
+        setPose(Pose.EMERGING);
+        playSound(SoundEvents.WARDEN_AGITATED, 5.0F, 1.0F);
+    }
+
     /** Starts the Warden-style tendril flash used when the sonic attack begins charging. */
     public void triggerTendrilPulse() {
         if (!level().isClientSide()) {
@@ -133,6 +143,15 @@ public final class RadiationWardenEntity extends Monster {
 
     @Override
     protected void customServerAiStep(ServerLevel level) {
+        if (emergenceTicks > 0) {
+            emergenceTicks--;
+            getNavigation().stop();
+            setDeltaMovement(0.0, 0.0, 0.0);
+            if (emergenceTicks == 0) {
+                setPose(Pose.STANDING);
+            }
+            return;
+        }
         int freezeTicks = entityData.get(FREEZE_BREEZE_TICKS);
         if (freezeTicks > 0) {
             entityData.set(FREEZE_BREEZE_TICKS, freezeTicks - 1);
@@ -195,6 +214,14 @@ public final class RadiationWardenEntity extends Monster {
     }
 
     @Override
+    public void onSyncedDataUpdated(EntityDataAccessor<?> accessor) {
+        if (DATA_POSE.equals(accessor) && getPose() == Pose.EMERGING) {
+            emergeAnimationState.start(tickCount);
+        }
+        super.onSyncedDataUpdated(accessor);
+    }
+
+    @Override
     protected float getSoundVolume() {
         return 4.0F;
     }
@@ -252,6 +279,7 @@ public final class RadiationWardenEntity extends Monster {
         output.putString("radiation_warden_phase", bossState.phaseId().toString());
         output.putString("radiation_warden_subphase", bossState.subphaseId().toString());
         output.putInt("freeze_breeze_ticks", entityData.get(FREEZE_BREEZE_TICKS));
+        output.putInt("radiation_warden_emergence_ticks", emergenceTicks);
     }
 
     @Override
@@ -264,5 +292,6 @@ public final class RadiationWardenEntity extends Monster {
             bossState = new BossState(profileId, phaseId, subphaseId);
         }
         entityData.set(FREEZE_BREEZE_TICKS, input.getIntOr("freeze_breeze_ticks", 0));
+        emergenceTicks = input.getIntOr("radiation_warden_emergence_ticks", 0);
     }
 }

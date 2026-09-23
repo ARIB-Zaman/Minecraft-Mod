@@ -15,6 +15,7 @@
 
   "block.watermelonmod.first_block" : "First custom block",
   "block.watermelonmod.workbench" : "Goggles Workbench",
+  "block.watermelonmod.radiation_shrieker" : "Radiation Shrieker",
   "container.watermelonmod.workbench" : "Goggles Workbench",
   "gui.watermelonmod.workbench.insert_goggles" : "Insert goggles to configure them",
   "gui.watermelonmod.workbench.greyscale" : "Greyscale intensity",
