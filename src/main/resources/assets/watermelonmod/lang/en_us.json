@@ -7,6 +7,7 @@
   "item.watermelonmod.band_pass_goggles" : "Band-pass Filter Goggles",
   "item.watermelonmod.echo_funnel" : "Echo Funnel",
   "item.watermelonmod.silence_breeze" : "Silence Breeze",
+  "item.watermelonmod.freeze_breeze" : "Freeze Breeze",
   "item.watermelonmod.radiation_warden_spawn_egg" : "Radiation Warden Spawn Egg",
 
   "entity.watermelonmod.radiation_warden": "Radiation Warden",

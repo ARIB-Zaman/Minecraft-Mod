@@ -30,7 +30,8 @@ public final class SonicRadiationGoal extends Goal {
     @Override
     public boolean canUse() {
         target = boss.getTarget();
-        return boss.tickCount >= nextAvailableTick
+        return !boss.isFreezeBreezeFrozen()
+                && boss.tickCount >= nextAvailableTick
                 && boss.selectAttackId().filter(definition.id()::equals).isPresent()
                 && target != null
                 && executor.isInRange(boss, target, definition);
@@ -38,7 +39,7 @@ public final class SonicRadiationGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        return target != null && target.isAlive() && !fired;
+        return !boss.isFreezeBreezeFrozen() && target != null && target.isAlive() && !fired;
     }
 
     @Override

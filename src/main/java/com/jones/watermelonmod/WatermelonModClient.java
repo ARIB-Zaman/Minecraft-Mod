@@ -25,6 +25,7 @@ public final class WatermelonModClient implements ClientModInitializer {
         EntityRendererRegistry.register(ModEntities.RADIATION_WARDEN, RadiationWardenRenderer::new);
         EntityRendererRegistry.register(ModEntities.SILENCE_BREEZE_PROJECTILE, ThrownItemRenderer::new);
         EntityRendererRegistry.register(ModEntities.SILENCE_DOME, NoopRenderer::new);
+        EntityRendererRegistry.register(ModEntities.FREEZE_BREEZE_PROJECTILE, ThrownItemRenderer::new);
         MenuScreens.register(ModMenus.WORKBENCH, WorkbenchScreen::new);
         GogglesPipelineRegistry.register(
                 GreyscaleGogglesItem.PIPELINE_ID,

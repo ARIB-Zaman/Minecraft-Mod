@@ -44,6 +44,16 @@ public final class ModEntities {
                     .build(ResourceKey.create(Registries.ENTITY_TYPE, WatermelonMod.id("silence_dome")))
     );
 
+    public static final EntityType<FreezeBreezeProjectile> FREEZE_BREEZE_PROJECTILE = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE,
+            WatermelonMod.id("freeze_breeze_projectile"),
+            EntityType.Builder.<FreezeBreezeProjectile>of(FreezeBreezeProjectile::new, MobCategory.MISC)
+                    .sized(0.3125F, 0.3125F)
+                    .clientTrackingRange(4)
+                    .updateInterval(10)
+                    .build(ResourceKey.create(Registries.ENTITY_TYPE, WatermelonMod.id("freeze_breeze_projectile")))
+    );
+
     private ModEntities() {
     }
 

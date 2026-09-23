@@ -2,6 +2,7 @@ package com.jones.watermelonmod.entity.ai;
 
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.PathfinderMob;
+import com.jones.watermelonmod.entity.RadiationWardenEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import org.jspecify.annotations.Nullable;
 
@@ -25,12 +26,12 @@ public final class ChaseTargetGoal extends Goal {
     @Override
     public boolean canUse() {
         target = mob.getTarget();
-        return isTargetOutsideStoppingDistance();
+        return !isFreezeBreezeFrozen() && isTargetOutsideStoppingDistance();
     }
 
     @Override
     public boolean canContinueToUse() {
-        return isTargetOutsideStoppingDistance();
+        return !isFreezeBreezeFrozen() && isTargetOutsideStoppingDistance();
     }
 
     @Override
@@ -56,5 +57,9 @@ public final class ChaseTargetGoal extends Goal {
 
     private boolean isTargetOutsideStoppingDistance() {
         return target != null && target.isAlive() && mob.distanceToSqr(target) > stoppingDistance * stoppingDistance;
+    }
+
+    private boolean isFreezeBreezeFrozen() {
+        return mob instanceof RadiationWardenEntity warden && warden.isFreezeBreezeFrozen();
     }
 }

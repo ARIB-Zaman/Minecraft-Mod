@@ -14,6 +14,9 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.AnimationState;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
@@ -31,6 +34,7 @@ import java.util.Optional;
  * and health-state evaluation only; attacks remain deliberately absent.
  */
 public final class RadiationWardenEntity extends Monster {
+    private static final EntityDataAccessor<Integer> FREEZE_BREEZE_TICKS = SynchedEntityData.defineId(RadiationWardenEntity.class, EntityDataSerializers.INT);
     private BossState bossState = RadiationWardenProfile.initialState();
     private final BossCombatController combatController = new BossCombatController(RadiationWardenProfile.INITIAL);
     public final AnimationState sonicBoomAnimationState = new AnimationState();
@@ -68,6 +72,23 @@ public final class RadiationWardenEntity extends Monster {
         return combatController.selectAttack(this);
     }
 
+    /** Applies the short hard-stun used by Freeze Breeze. */
+    public void freezeByBreeze(int ticks) {
+        entityData.set(FREEZE_BREEZE_TICKS, Math.max(entityData.get(FREEZE_BREEZE_TICKS), ticks));
+        getNavigation().stop();
+        setDeltaMovement(0.0, 0.0, 0.0);
+    }
+
+    public boolean isFreezeBreezeFrozen() {
+        return entityData.get(FREEZE_BREEZE_TICKS) > 0;
+    }
+
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(FREEZE_BREEZE_TICKS, 0);
+    }
+
     @Override
     protected void registerGoals() {
         goalSelector.addGoal(0, new SonicRadiationGoal(this, RadiationWardenProfile.SONIC_RADIATION, new com.jones.watermelonmod.attack.sonic.SonicRadiationAttackExecutor()));
@@ -78,6 +99,13 @@ public final class RadiationWardenEntity extends Monster {
 
     @Override
     protected void customServerAiStep(ServerLevel level) {
+        int freezeTicks = entityData.get(FREEZE_BREEZE_TICKS);
+        if (freezeTicks > 0) {
+            entityData.set(FREEZE_BREEZE_TICKS, freezeTicks - 1);
+            getNavigation().stop();
+            setDeltaMovement(0.0, 0.0, 0.0);
+            return;
+        }
         combatController.tick(this);
         super.customServerAiStep(level);
         bossEvent.setProgress(getHealth() / getMaxHealth());
@@ -116,6 +144,7 @@ public final class RadiationWardenEntity extends Monster {
         output.putString("radiation_warden_profile", bossState.profileId().toString());
         output.putString("radiation_warden_phase", bossState.phaseId().toString());
         output.putString("radiation_warden_subphase", bossState.subphaseId().toString());
+        output.putInt("freeze_breeze_ticks", entityData.get(FREEZE_BREEZE_TICKS));
     }
 
     @Override
@@ -127,5 +156,6 @@ public final class RadiationWardenEntity extends Monster {
         if (profileId != null && phaseId != null && subphaseId != null) {
             bossState = new BossState(profileId, phaseId, subphaseId);
         }
+        entityData.set(FREEZE_BREEZE_TICKS, input.getIntOr("freeze_breeze_ticks", 0));
     }
 }
