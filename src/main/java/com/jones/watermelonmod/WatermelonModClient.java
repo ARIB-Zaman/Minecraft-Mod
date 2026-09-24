@@ -4,15 +4,12 @@ import com.jones.watermelonmod.client.goggles.GogglesPipelineRegistry;
 import com.jones.watermelonmod.client.goggles.GogglesPostProcessingController;
 import com.jones.watermelonmod.client.goggles.PostEffectGogglesPipeline;
 import com.jones.watermelonmod.client.fft.GpuFftProcessor;
-import com.jones.watermelonmod.client.sonar.SonarBlip;
+import com.jones.watermelonmod.client.sonar.SonarController;
 import com.jones.watermelonmod.client.sonar.SonarHud;
 import com.jones.watermelonmod.client.sonar.SonarState;
-import com.jones.watermelonmod.client.sonar.SonarSweep;
-import com.jones.watermelonmod.goggles.GogglesEquipment;
 import com.jones.watermelonmod.item.custom.GreyscaleGogglesItem;
 import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
 import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
-import com.jones.watermelonmod.item.custom.SonarGogglesItem;
 import com.jones.watermelonmod.client.workbench.WorkbenchScreen;
 import com.jones.watermelonmod.menu.ModMenus;
 import com.jones.watermelonmod.client.entity.RadiationWardenRenderer;
@@ -24,16 +21,9 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.MenuScreens;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
-
-import java.util.List;
 
 /** Client-only bridge between equipped goggles and Minecraft's post-effect renderer. */
 public final class WatermelonModClient implements ClientModInitializer {
@@ -68,19 +58,9 @@ public final class WatermelonModClient implements ClientModInitializer {
             GpuFftProcessor.tick(client);
             SonarState.advanceTick();
             if (SONAR_PING_KEY.consumeClick()) {
-                tryFireSonarPing(client);
+                SonarController.ping(client);
             }
+            SonarController.tick(client);
         });
-    }
-
-    private static void tryFireSonarPing(Minecraft client) {
-        LocalPlayer player = client.player;
-        ClientLevel level = client.level;
-        if (player == null || level == null || !SonarState.readyToPing()) return;
-        boolean wearingSonar = GogglesEquipment.equippedGoggles(player).map(stack -> stack.getItem() instanceof SonarGogglesItem).orElse(false);
-        if (!wearingSonar) return;
-        List<SonarBlip> blips = SonarSweep.fire(level, player, SonarState.clientTick());
-        SonarState.firePing(blips);
-        level.playLocalSound(player, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0F, 1.0F);
     }
 }

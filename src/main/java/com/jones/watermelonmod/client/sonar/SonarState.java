@@ -7,9 +7,10 @@ import java.util.List;
 public final class SonarState {
     public static final int COOLDOWN_TICKS = 60;
 
-    private static List<SonarBlip> blips = Collections.emptyList();
+    private static List<SonarEcho> echoes = Collections.emptyList();
     private static int clientTick;
     private static int cooldownUntilTick;
+    private static int lastPingTick = Integer.MIN_VALUE;
 
     private SonarState() {
     }
@@ -26,13 +27,18 @@ public final class SonarState {
         return clientTick >= cooldownUntilTick;
     }
 
-    public static void firePing(List<SonarBlip> newBlips) {
-        blips = newBlips;
+    public static void firePing(List<SonarEcho> newEchoes) {
+        echoes = newEchoes;
         cooldownUntilTick = clientTick + COOLDOWN_TICKS;
+        lastPingTick = clientTick;
     }
 
-    public static List<SonarBlip> currentBlips() {
-        return blips;
+    public static List<SonarEcho> currentEchoes() {
+        return echoes;
+    }
+
+    public static int lastPingTick() {
+        return lastPingTick;
     }
 
     public static float cooldownPercent() {

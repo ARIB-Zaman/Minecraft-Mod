@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Fires a real ray-cast sweep from the player's eye and returns one {@link SonarBlip} per hit —
+ * Fires a real ray-cast sweep from the player's eye and returns one {@link SonarEcho} per hit —
  * a wall surface (colored by the block's actual map color, so different materials genuinely look
  * different) or a nearby mob (colored by hostility and brightness-shifted by a real Doppler ratio
  * computed from the mob's current velocity). Each blip's reveal tick is derived from a real
@@ -31,8 +31,8 @@ public final class SonarSweep {
     private SonarSweep() {
     }
 
-    public static List<SonarBlip> fire(Level level, LocalPlayer player, int fireTick) {
-        List<SonarBlip> blips = new ArrayList<>();
+    public static List<SonarEcho> fire(Level level, LocalPlayer player, int fireTick) {
+        List<SonarEcho> blips = new ArrayList<>();
         Vec3 eye = player.getEyePosition();
 
         for (float pitch : PITCH_RINGS) {
@@ -45,7 +45,7 @@ public final class SonarSweep {
                     double distance = eye.distanceTo(hit.getLocation());
                     BlockState state = level.getBlockState(hit.getBlockPos());
                     int color = ARGB.opaque(state.getMapColor(level, hit.getBlockPos()).col);
-                    blips.add(new SonarBlip(hit.getLocation(), color, revealTick(fireTick, distance), false, 1.0F));
+                    blips.add(new SonarEcho(hit.getLocation(), color, revealTick(fireTick, distance), false, 1.0F));
                 }
             }
         }
@@ -59,7 +59,7 @@ public final class SonarSweep {
             boolean hostile = mob instanceof Enemy;
             int baseColor = hostile ? 0xFFFF4040 : 0xFF40C0FF;
             int color = ARGB.scaleRGB(baseColor, Mth.clamp(dopplerRatio, 0.5F, 1.5F));
-            blips.add(new SonarBlip(mob.position(), color, revealTick(fireTick, distance), true, dopplerRatio));
+            blips.add(new SonarEcho(mob.position(), color, revealTick(fireTick, distance), true, dopplerRatio));
         }
 
         return blips;
