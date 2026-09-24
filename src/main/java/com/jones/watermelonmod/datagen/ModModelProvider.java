@@ -26,6 +26,5 @@ public class ModModelProvider extends FabricModelProvider {
         // Most goggles use authored 3D item models under assets/watermelonmod; only
         // items without one yet fall back to a generated flat icon.
         itemModelGenerators.generateFlatItem(ModItems.HIGH_PASS_GOGGLES, ModelTemplates.FLAT_ITEM);
-        itemModelGenerators.generateFlatItem(ModItems.SONAR_GOGGLES, ModelTemplates.FLAT_ITEM);
     }
 }
