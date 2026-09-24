@@ -6,6 +6,8 @@
 		"ExampleMixin"
 	],
 	"client": [
+		"client.MinecraftEchoFunnelMixin",
+		"client.KeyboardHandlerEchoFunnelMixin",
 		"client.GameRendererInvoker",
 		"client.GameRendererFftMixin",
 		"client.PostPassMixin"

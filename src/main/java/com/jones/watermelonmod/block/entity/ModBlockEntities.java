@@ -13,6 +13,11 @@ public final class ModBlockEntities {
             WatermelonMod.id("workbench"),
             new BlockEntityType<>(WorkbenchBlockEntity::new, java.util.Set.of(ModBlocks.WORKBENCH))
     );
+    public static final BlockEntityType<RadiationShriekerBlockEntity> RADIATION_SHRIEKER = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            WatermelonMod.id("radiation_shrieker"),
+            new BlockEntityType<>(RadiationShriekerBlockEntity::new, java.util.Set.of(ModBlocks.RADIATION_SHRIEKER))
+    );
 
     private ModBlockEntities() { }
 

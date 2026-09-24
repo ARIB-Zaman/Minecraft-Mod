@@ -5,6 +5,11 @@ import com.jones.watermelonmod.block.entity.ModBlockEntities;
 import com.jones.watermelonmod.menu.ModMenus;
 import com.jones.watermelonmod.item.ModItems;
 import com.jones.watermelonmod.item.ModDataComponents;
+import com.jones.watermelonmod.item.ModSpawnEggItems;
+import com.jones.watermelonmod.entity.ModEntities;
+import com.jones.watermelonmod.entity.RadiationWardenEntity;
+import com.jones.watermelonmod.network.EchoFunnelNetworking;
+import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.fabricmc.api.ModInitializer;
 
 import net.minecraft.resources.Identifier;
@@ -27,6 +32,10 @@ public class WatermelonMod implements ModInitializer {
 		// Proceed with mild caution.
 
 		ModDataComponents.initialize();
+		EchoFunnelNetworking.initialize();
+		ModEntities.initialize();
+		FabricDefaultAttributeRegistry.register(ModEntities.RADIATION_WARDEN, RadiationWardenEntity.createAttributes());
+		ModSpawnEggItems.initialize();
 		ModItems.registerModItems();
 		ModBlocks.registerModBlocks();
 		ModBlockEntities.initialize();

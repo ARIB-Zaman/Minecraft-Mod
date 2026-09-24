@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "watermelonmod:item/frequency_filter_goggles"
-  }
-}

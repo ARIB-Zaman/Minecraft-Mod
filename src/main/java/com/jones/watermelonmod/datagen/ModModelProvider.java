@@ -23,12 +23,9 @@ public class ModModelProvider extends FabricModelProvider {
     @Override
     public void generateItemModels(ItemModelGenerators itemModelGenerators) {
         itemModelGenerators.generateFlatItem(ModItems.FirstItem, ModelTemplates.FLAT_ITEM);
-        itemModelGenerators.generateFlatItem(ModItems.GREYSCALE_GOGGLES, ModelTemplates.FLAT_ITEM);
-        itemModelGenerators.generateFlatItem(ModItems.EDGE_DETECTION_GOGGLES, ModelTemplates.FLAT_ITEM);
-        itemModelGenerators.generateFlatItem(ModItems.SHARPENING_GOGGLES, ModelTemplates.FLAT_ITEM);
-        itemModelGenerators.generateFlatItem(ModItems.FREQUENCY_FILTER_GOGGLES, ModelTemplates.FLAT_ITEM);
+        // Most goggles use authored 3D item models under assets/watermelonmod; only
+        // items without one yet fall back to a generated flat icon.
         itemModelGenerators.generateFlatItem(ModItems.HIGH_PASS_GOGGLES, ModelTemplates.FLAT_ITEM);
-        itemModelGenerators.generateFlatItem(ModItems.BAND_PASS_GOGGLES, ModelTemplates.FLAT_ITEM);
         itemModelGenerators.generateFlatItem(ModItems.SONAR_GOGGLES, ModelTemplates.FLAT_ITEM);
     }
 }

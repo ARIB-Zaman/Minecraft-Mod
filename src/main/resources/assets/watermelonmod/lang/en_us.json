@@ -8,10 +8,17 @@
   "item.watermelonmod.band_pass_goggles" : "Band-pass Filter Goggles",
   "item.watermelonmod.sonar_goggles" : "Sonar Goggles",
   "key.watermelonmod.sonar_ping" : "Sonar Ping",
+  "item.watermelonmod.echo_funnel" : "Echo Funnel",
+  "item.watermelonmod.silence_breeze" : "Silence Breeze",
+  "item.watermelonmod.freeze_breeze" : "Freeze Breeze",
+  "item.watermelonmod.damage_breeze" : "Damage Breeze",
+  "item.watermelonmod.radiation_warden_spawn_egg" : "Radiation Warden Spawn Egg",
 
+  "entity.watermelonmod.radiation_warden": "Radiation Warden",
 
   "block.watermelonmod.first_block" : "First custom block",
   "block.watermelonmod.workbench" : "Goggles Workbench",
+  "block.watermelonmod.radiation_shrieker" : "Radiation Shrieker",
   "container.watermelonmod.workbench" : "Goggles Workbench",
   "gui.watermelonmod.workbench.insert_goggles" : "Insert goggles to configure them",
   "gui.watermelonmod.workbench.greyscale" : "Greyscale intensity",
@@ -24,4 +31,17 @@
   "gui.watermelonmod.workbench.band_high_cutoff" : "Band-pass high cutoff",
   "gui.watermelonmod.workbench.rotate_kernel" : "Rotate 90°",
   "gui.watermelonmod.workbench.orientation" : "Orientation: %s°"
+  ,"gui.watermelonmod.echo_funnel.title" : "Echo Funnel"
+  ,"gui.watermelonmod.echo_funnel.capture_slots" : "Captured signals"
+  ,"gui.watermelonmod.echo_funnel.empty" : "Empty"
+  ,"gui.watermelonmod.echo_funnel.slot" : "Signal %s"
+  ,"gui.watermelonmod.echo_funnel.spectrum" : "Frequency spectrum"
+  ,"gui.watermelonmod.echo_funnel.no_selection" : "Select a signal above"
+  ,"gui.watermelonmod.echo_funnel.frequency_detail" : "Bin %s | Bank %s | Amplitude %s"
+  ,"gui.watermelonmod.echo_funnel.offer_detail" : "%s | Costs: %s / %s / %s / %s"
+  ,"message.watermelonmod.echo_funnel.captured" : "Sonic Radiation captured"
+  ,"message.watermelonmod.echo_funnel.full" : "Echo Funnel signal slots are full"
+  ,"message.watermelonmod.echo_funnel.banked" : "Signal frequencies banked"
+  ,"message.watermelonmod.echo_funnel.insufficient_points" : "Not enough bank points"
+  ,"message.watermelonmod.echo_funnel.redeemed" : "Echo Funnel item redeemed"
 }
