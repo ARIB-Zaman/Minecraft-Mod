@@ -15,8 +15,8 @@ public final class RewardCatalog {
             new RewardOffer(ModItems.FREEZE_BREEZE, 6, List.of(2, 6, 4, 2)),
             new RewardOffer(ModItems.DAMAGE_BREEZE, 8, List.of(1, 3, 6, 5)),
             new RewardOffer(Items.GOLDEN_APPLE, 2, List.of(6, 2, 5, 3)),
-            new RewardOffer(Items.SNOWBALL, 16, List.of(3, 5, 2, 6)),
-            new RewardOffer(Items.EXPERIENCE_BOTTLE, 8, List.of(4, 3, 5, 4))
+            new RewardOffer(Items.WIND_CHARGE, 16, List.of(3, 5, 2, 6)),
+            new RewardOffer(Items.ENDER_PEARL, 4, List.of(4, 3, 5, 4))
     );
 
     private RewardCatalog() {
