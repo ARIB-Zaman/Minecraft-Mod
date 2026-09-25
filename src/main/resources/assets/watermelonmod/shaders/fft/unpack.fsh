@@ -12,6 +12,6 @@ void main() {
     vec4 rg = texelFetch(RGSampler, pixel, 0);
     float blue = texelFetch(BSampler, pixel, 0).r;
     float phase = ((pixel.x + pixel.y) & 1) == 0 ? 1.0 : -1.0;
-    vec3 rgb = phase * vec3(rg.r, rg.b, blue) / float(1024 * 512);
+    vec3 rgb = phase * vec3(rg.r, rg.b, blue) / (OutSize.x * OutSize.y);
     fragColor = vec4(clamp(rgb, 0.0, 1.0), 1.0);
 }

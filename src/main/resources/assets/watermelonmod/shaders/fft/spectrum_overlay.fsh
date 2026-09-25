@@ -7,10 +7,11 @@ layout(std140) uniform FftConfig { vec4 Params; }; // x = overlay opacity
 out vec4 fragColor;
 
 void main() {
-    // Preserve the captured 256x128 (2:1) texture aspect ratio in screen
-    // pixels. screenquad UV has y=0 at the bottom, hence this is top-right.
-    const float panelHeight = 0.22;
-    float panelWidth = panelHeight * 2.0 * OutSize.y / OutSize.x;
+    // A square panel keeps both frequency axes (-0.5..0.5 cycles/pixel) at the
+    // same scale, so stripe angles and spacings read true. screenquad UV has
+    // y=0 at the bottom, hence this is top-right.
+    const float panelHeight = 0.30;
+    float panelWidth = panelHeight * OutSize.y / OutSize.x;
     vec2 panelSize = vec2(panelWidth, panelHeight);
     vec2 panelOrigin = vec2(0.97 - panelWidth, 0.74);
     vec2 panelUv = (texCoord - panelOrigin) / panelSize;

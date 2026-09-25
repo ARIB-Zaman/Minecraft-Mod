@@ -8,6 +8,7 @@ import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
 import com.jones.watermelonmod.item.custom.FrequencyFilterGogglesItem;
 import com.jones.watermelonmod.item.custom.HighPassGogglesItem;
 import com.jones.watermelonmod.item.custom.BandPassGogglesItem;
+import com.jones.watermelonmod.item.custom.VeilGogglesItem;
 import com.jones.watermelonmod.menu.WorkbenchMenu;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -18,6 +19,8 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
+
+import java.util.List;
 
 /**
  * A deliberately texture-free workbench UI. Its slider is driven by pipeline
@@ -35,6 +38,12 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
     private static final int ROTATE_Y = 91;
     private static final int ROTATE_WIDTH = 74;
     private static final int ROTATE_HEIGHT = 15;
+    private static final int SLIDERS_PER_PAGE = 3;
+    private static final int PAGE_X = 10;
+    private static final int PAGE_Y = 68;
+    private static final int PAGE_WIDTH = 48;
+    private static final int PAGE_HEIGHT = 14;
+    private int page;
 
     public WorkbenchScreen(WorkbenchMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title, 230, 234);
@@ -75,13 +84,48 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
             return;
         }
 
-        int index = 0;
-        for (GogglesParameter parameter : goggles.pipeline().parameters().values()) {
-            if (index == 3) break;
-            extractSlider(graphics, x, y, goggles, parameter, index, Math.min(3, goggles.pipeline().parameters().size()));
-            index++;
+        List<GogglesParameter> parameters = List.copyOf(goggles.pipeline().parameters().values());
+        int first = firstVisibleSlider(parameters.size());
+        int shown = visibleSliderCount(parameters.size());
+        for (int row = 0; row < shown; row++) {
+            extractSlider(graphics, x, y, goggles, parameters.get(first + row), first + row, row);
         }
-        if (index < 3) graphics.text(font, Component.literal(goggles.pipeline().id().getPath()), x + SLIDER_X, y + (index > 1 ? 116 : 102), 0xFF555555, false);
+        if (pageCount(parameters.size()) > 1) {
+            extractPageButton(graphics, x, y, parameters.size());
+        } else if (shown < 3) {
+            graphics.text(font, Component.literal(goggles.pipeline().id().getPath()), x + SLIDER_X, y + (shown > 1 ? 116 : 102), 0xFF555555, false);
+        }
+    }
+
+    private int parameterCount() {
+        return menu.gogglesStack().getItem() instanceof GogglesItem goggles
+                ? Math.min(WorkbenchMenu.SLIDER_COUNT, goggles.pipeline().parameters().size()) : 0;
+    }
+
+    private static int pageCount(int parameterCount) {
+        return Math.max(1, (Math.min(parameterCount, WorkbenchMenu.SLIDER_COUNT) + SLIDERS_PER_PAGE - 1) / SLIDERS_PER_PAGE);
+    }
+
+    private int firstVisibleSlider(int parameterCount) {
+        if (page >= pageCount(parameterCount)) page = 0;
+        return page * SLIDERS_PER_PAGE;
+    }
+
+    private int visibleSliderCount(int parameterCount) {
+        return Math.max(0, Math.min(SLIDERS_PER_PAGE, Math.min(parameterCount, WorkbenchMenu.SLIDER_COUNT) - firstVisibleSlider(parameterCount)));
+    }
+
+    private void extractPageButton(GuiGraphicsExtractor graphics, int x, int y, int parameterCount) {
+        graphics.fill(x + PAGE_X, y + PAGE_Y, x + PAGE_X + PAGE_WIDTH, y + PAGE_Y + PAGE_HEIGHT, 0xFF555555);
+        graphics.fill(x + PAGE_X + 1, y + PAGE_Y + 1, x + PAGE_X + PAGE_WIDTH - 1, y + PAGE_Y + PAGE_HEIGHT - 1, 0xFF82A9C4);
+        Component label = Component.translatable("gui.watermelonmod.workbench.page", page + 1, pageCount(parameterCount));
+        graphics.text(font, label, x + PAGE_X + (PAGE_WIDTH - font.width(label)) / 2, y + PAGE_Y + 3, 0xFF202020, false);
+    }
+
+    private boolean isOverPageButton(double mouseX, double mouseY) {
+        return pageCount(parameterCount()) > 1
+                && mouseX >= leftPos + PAGE_X && mouseX < leftPos + PAGE_X + PAGE_WIDTH
+                && mouseY >= topPos + PAGE_Y && mouseY < topPos + PAGE_Y + PAGE_HEIGHT;
     }
 
     @Override
@@ -98,6 +142,10 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
             if (menu.clickMenuButton(minecraft.player, WorkbenchMenu.ROTATE_EDGE_MATRIX)) {
                 minecraft.gameMode.handleInventoryButtonClick(menu.containerId, WorkbenchMenu.ROTATE_EDGE_MATRIX);
             }
+            return true;
+        }
+        if (isOverPageButton(event.x(), event.y())) {
+            page = (page + 1) % pageCount(parameterCount());
             return true;
         }
         int slider = sliderAt(event.x(), event.y());
@@ -124,8 +172,10 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
         return super.mouseReleased(event);
     }
 
-    private void extractSlider(GuiGraphicsExtractor graphics, int x, int y, GogglesItem goggles, GogglesParameter parameter, int index, int count) {
-        Component label = goggles instanceof BandPassGogglesItem
+    private void extractSlider(GuiGraphicsExtractor graphics, int x, int y, GogglesItem goggles, GogglesParameter parameter, int index, int row) {
+        Component label = goggles instanceof VeilGogglesItem
+                ? Component.translatable("gui.watermelonmod.workbench.veil." + parameter.key())
+                : goggles instanceof BandPassGogglesItem
                 ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.band_low_cutoff" : index == 1 ? "gui.watermelonmod.workbench.band_high_cutoff" : "gui.watermelonmod.workbench.spectrum_opacity")
                 : goggles instanceof FrequencyFilterGogglesItem
                     ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.frequency_cutoff" : "gui.watermelonmod.workbench.spectrum_opacity")
@@ -137,23 +187,32 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
         int step = 29;
         int labelY = 25;
         int baseTrackY = SLIDER_Y;
-        int offsetY = index * step;
+        int offsetY = row * step;
         graphics.text(font, label, x + SLIDER_X, y + labelY + offsetY, 0xFF404040, false);
         int trackY = y + baseTrackY + offsetY;
         graphics.fill(x + SLIDER_X, trackY, x + SLIDER_X + SLIDER_WIDTH, trackY + 4, 0xFF555555);
         int knobX = x + SLIDER_X + Math.round((SLIDER_WIDTH - 6) * menu.sliderPercent(index) / 100.0F);
         graphics.fill(knobX, trackY - 4, knobX + 6, trackY + 8, 0xFF2F75B5);
-        graphics.text(font, Component.literal(menu.sliderPercent(index) + "%"), x + 198, trackY - 2, 0xFF404040, false);
+        if (goggles instanceof VeilGogglesItem) {
+            // Real units, right-aligned on the label line, so players can enter what they measured.
+            float value = parameter.minimum() + (parameter.maximum() - parameter.minimum()) * menu.sliderPercent(index) / 100.0F;
+            Component shown = VeilGogglesItem.describe(parameter.key(), value);
+            graphics.text(font, shown, x + SLIDER_X + SLIDER_WIDTH - font.width(shown), y + labelY + offsetY, 0xFF2F4F7F, false);
+        } else {
+            graphics.text(font, Component.literal(menu.sliderPercent(index) + "%"), x + 198, trackY - 2, 0xFF404040, false);
+        }
     }
 
     private int sliderAt(double mouseX, double mouseY) {
         if (mouseX < leftPos + SLIDER_X || mouseX > leftPos + SLIDER_X + SLIDER_WIDTH) return -1;
-        int count = menu.gogglesStack().getItem() instanceof GogglesItem goggles ? Math.min(3, goggles.pipeline().parameters().size()) : 0;
+        int parameters = parameterCount();
+        int first = firstVisibleSlider(parameters);
+        int shown = visibleSliderCount(parameters);
         int step = 29;
         int baseTrackY = SLIDER_Y;
-        for (int index = 0; index < count; index++) {
-            int trackY = topPos + baseTrackY + index * step;
-            if (mouseY >= trackY - 7 && mouseY <= trackY + 11) return index;
+        for (int row = 0; row < shown; row++) {
+            int trackY = topPos + baseTrackY + row * step;
+            if (mouseY >= trackY - 7 && mouseY <= trackY + 11) return first + row;
         }
         return -1;
     }

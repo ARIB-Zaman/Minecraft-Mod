@@ -1,0 +1,7 @@
+{
+  "parent": "watermelonmod:item/band_pass_goggles",
+  "textures": {
+    "particle": "watermelonmod:item/goggles/veil_goggles",
+    "tex": "watermelonmod:item/goggles/veil_goggles"
+  }
+}

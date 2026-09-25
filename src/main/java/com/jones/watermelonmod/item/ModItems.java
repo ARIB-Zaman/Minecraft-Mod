@@ -7,7 +7,11 @@ import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
 import com.jones.watermelonmod.item.custom.FrequencyFilterGogglesItem;
 import com.jones.watermelonmod.item.custom.HighPassGogglesItem;
 import com.jones.watermelonmod.item.custom.BandPassGogglesItem;
+
 import com.jones.watermelonmod.item.custom.SonarGogglesItem;
+
+import com.jones.watermelonmod.item.custom.VeilGogglesItem;
+
 import com.jones.watermelonmod.item.custom.EchoFunnelItem;
 import com.jones.watermelonmod.item.custom.SilenceBreezeItem;
 import com.jones.watermelonmod.item.custom.FreezeBreezeItem;
@@ -32,7 +36,11 @@ public class ModItems {
     public static final Item FREQUENCY_FILTER_GOGGLES = registerItem("frequency_filter_goggles", FrequencyFilterGogglesItem::new);
     public static final Item HIGH_PASS_GOGGLES = registerItem("high_pass_goggles", HighPassGogglesItem::new);
     public static final Item BAND_PASS_GOGGLES = registerItem("band_pass_goggles", BandPassGogglesItem::new);
+
     public static final Item SONAR_GOGGLES = registerItem("sonar_goggles", SonarGogglesItem::new);
+
+    public static final Item VEIL_GOGGLES = registerItem("veil_goggles", VeilGogglesItem::new);
+
     public static final Item ECHO_FUNNEL = registerItem("echo_funnel", EchoFunnelItem::new);
     public static final Item SILENCE_BREEZE = registerItem("silence_breeze", properties -> new SilenceBreezeItem(properties.stacksTo(16)));
     public static final Item FREEZE_BREEZE = registerItem("freeze_breeze", properties -> new FreezeBreezeItem(properties.stacksTo(16)));
@@ -55,6 +63,7 @@ public class ModItems {
             output.accept(HIGH_PASS_GOGGLES);
             output.accept(BAND_PASS_GOGGLES);
             output.accept(SONAR_GOGGLES);
+            output.accept(VEIL_GOGGLES);
             output.accept(ECHO_FUNNEL);
             output.accept(SILENCE_BREEZE);
             output.accept(FREEZE_BREEZE);

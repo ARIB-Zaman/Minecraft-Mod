@@ -1,24 +1,26 @@
 package com.jones.watermelonmod;
 
+import com.jones.watermelonmod.client.entity.RadiationWardenRenderer;
+import com.jones.watermelonmod.client.fft.GpuFftProcessor;
 import com.jones.watermelonmod.client.goggles.GogglesPipelineRegistry;
 import com.jones.watermelonmod.client.goggles.GogglesPostProcessingController;
 import com.jones.watermelonmod.client.goggles.PostEffectGogglesPipeline;
-import com.jones.watermelonmod.client.fft.GpuFftProcessor;
 import com.jones.watermelonmod.client.sonar.SonarController;
 import com.jones.watermelonmod.client.sonar.SonarHud;
 import com.jones.watermelonmod.client.sonar.SonarState;
-import com.jones.watermelonmod.item.custom.GreyscaleGogglesItem;
-import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
-import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
+import com.jones.watermelonmod.client.veil.VeilCommands;
 import com.jones.watermelonmod.client.workbench.WorkbenchScreen;
-import com.jones.watermelonmod.menu.ModMenus;
-import com.jones.watermelonmod.client.entity.RadiationWardenRenderer;
 import com.jones.watermelonmod.entity.ModEntities;
+import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
+import com.jones.watermelonmod.item.custom.GreyscaleGogglesItem;
+import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
+import com.jones.watermelonmod.menu.ModMenus;
 import com.mojang.blaze3d.platform.InputConstants;
+
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.MenuScreens;
@@ -39,6 +41,7 @@ public final class WatermelonModClient implements ClientModInitializer {
         EntityRendererRegistry.register(ModEntities.FREEZE_BREEZE_PROJECTILE, ThrownItemRenderer::new);
         EntityRendererRegistry.register(ModEntities.DAMAGE_BREEZE_PROJECTILE, ThrownItemRenderer::new);
         MenuScreens.register(ModMenus.WORKBENCH, WorkbenchScreen::new);
+        VeilCommands.register();
         GogglesPipelineRegistry.register(
                 GreyscaleGogglesItem.PIPELINE_ID,
                 new PostEffectGogglesPipeline(WatermelonMod.id("greyscale"))
