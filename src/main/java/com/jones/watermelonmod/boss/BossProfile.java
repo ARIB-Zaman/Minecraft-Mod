@@ -24,15 +24,19 @@ public record BossProfile(Identifier id, List<BossPhase> phases) {
 
     public BossState stateAtHealthFraction(double healthFraction) {
         double clampedHealth = Math.clamp(healthFraction, 0.0, 1.0);
-        BossPhase phase = phases.stream()
-                .filter(candidate -> clampedHealth <= candidate.startsAtHealthFraction())
-                .findFirst()
-                .orElseThrow();
-        BossSubphase subphase = phase.subphases().stream()
-                .filter(candidate -> clampedHealth <= candidate.startsAtHealthFraction())
-                .findFirst()
-                .orElseThrow();
-        return new BossState(id, phase.id(), subphase.id());
+        BossPhase selectedPhase = phases.getFirst();
+        for (BossPhase candidate : phases) {
+            if (clampedHealth <= candidate.startsAtHealthFraction()) {
+                selectedPhase = candidate;
+            }
+        }
+        BossSubphase selectedSubphase = selectedPhase.subphases().getFirst();
+        for (BossSubphase candidate : selectedPhase.subphases()) {
+            if (clampedHealth <= candidate.startsAtHealthFraction()) {
+                selectedSubphase = candidate;
+            }
+        }
+        return new BossState(id, selectedPhase.id(), selectedSubphase.id());
     }
 
     public BossSubphase subphase(BossState state) {

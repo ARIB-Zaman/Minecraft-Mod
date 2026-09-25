@@ -3,6 +3,11 @@ package com.jones.watermelonmod.boss;
 import com.jones.watermelonmod.entity.RadiationWardenEntity;
 import net.minecraft.resources.Identifier;
 
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.effect.MobEffectUtil;
+
 import java.util.Optional;
 
 /**
@@ -22,11 +27,41 @@ public final class BossCombatController {
     }
 
     public void tick(RadiationWardenEntity boss) {
+        if (!boss.isAlive()) {
+            return;
+        }
         double healthFraction = boss.getHealth() / boss.getMaxHealth();
         BossState nextState = profile.stateAtHealthFraction(healthFraction);
         if (!nextState.equals(boss.bossState())) {
             boss.setBossState(nextState);
+            onSubphaseTransition(boss, profile.subphase(nextState));
         }
+
+        tickActiveSubphase(boss, profile.subphase(boss.bossState()));
+    }
+
+    private void onSubphaseTransition(RadiationWardenEntity boss, BossSubphase subphase) {
+        if (subphase.darkness().mode() == BossDarkness.DarknessMode.PULSE) {
+            applyDarkness(boss, subphase.darkness().durationTicks(), subphase.darkness().radius());
+        }
+    }
+
+    private void tickActiveSubphase(RadiationWardenEntity boss, BossSubphase subphase) {
+        if (subphase.darkness().mode() == BossDarkness.DarknessMode.CONTINUOUS) {
+            int interval = subphase.darkness().refreshIntervalTicks();
+            if (interval > 0 && boss.tickCount % interval == 0) {
+                applyDarkness(boss, subphase.darkness().durationTicks(), subphase.darkness().radius());
+            }
+        }
+    }
+
+    private void applyDarkness(RadiationWardenEntity boss, int durationTicks, double radius) {
+        if (boss.level().isClientSide() || durationTicks <= 0 || radius <= 0.0) {
+            return;
+        }
+        ServerLevel level = (ServerLevel) boss.level();
+        MobEffectInstance effect = new MobEffectInstance(MobEffects.DARKNESS, durationTicks, 0, false, false);
+        MobEffectUtil.addEffectToPlayersAround(level, boss, boss.position(), radius, effect, durationTicks);
     }
 
     public Optional<Identifier> selectAttack(RadiationWardenEntity boss) {
