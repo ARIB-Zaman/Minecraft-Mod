@@ -64,7 +64,7 @@ public final class RadiationWardenEntity extends Monster {
 
     public RadiationWardenEntity(EntityType<? extends RadiationWardenEntity> type, Level level) {
         super(type, level);
-        this.xpReward = 5;
+        this.xpReward = 12000;
     }
 
     public static AttributeSupplier.Builder createAttributes() {

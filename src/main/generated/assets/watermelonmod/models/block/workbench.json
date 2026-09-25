@@ -1,6 +1,12 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "minecraft:block/cube",
   "textures": {
-    "all": "watermelonmod:block/workbench"
+    "particle": "watermelonmod:block/goggle_workbench/goggle_workbench_side",
+    "down": "watermelonmod:block/goggle_workbench/goggle_workbench_bottom",
+    "up": "watermelonmod:block/goggle_workbench/goggle_workbench_top",
+    "north": "watermelonmod:block/goggle_workbench/goggle_workbench_front",
+    "south": "watermelonmod:block/goggle_workbench/goggle_workbench_back",
+    "east": "watermelonmod:block/goggle_workbench/goggle_workbench_side_east",
+    "west": "watermelonmod:block/goggle_workbench/goggle_workbench_side_west"
   }
 }
