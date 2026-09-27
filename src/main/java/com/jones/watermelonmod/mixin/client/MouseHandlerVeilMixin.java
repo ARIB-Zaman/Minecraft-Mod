@@ -3,6 +3,7 @@ package com.jones.watermelonmod.mixin.client;
 import com.jones.watermelonmod.goggles.GogglesEquipment;
 import com.jones.watermelonmod.goggles.GogglesParameter;
 import com.jones.watermelonmod.goggles.GogglesSettingsService;
+import com.jones.watermelonmod.client.veil.VeilTrialState;
 import com.jones.watermelonmod.client.veil.VeilTuningState;
 import com.jones.watermelonmod.item.custom.GogglesItem;
 import com.jones.watermelonmod.item.custom.VeilGogglesItem;
@@ -40,7 +41,11 @@ public abstract class MouseHandlerVeilMixin {
         }
 
         ItemStack stack = veilGoggles.get();
-        GogglesParameter parameter = VeilTuningState.selected(((GogglesItem) stack.getItem()).pipeline());
+        // During a timed trial, scrolling always targets angle, regardless of
+        // whatever the player last selected with V — keeps the test focused.
+        GogglesParameter parameter = VeilTrialState.isActive()
+                ? ((GogglesItem) stack.getItem()).pipeline().parameters().get(VeilGogglesItem.ANGLE)
+                : VeilTuningState.selected(((GogglesItem) stack.getItem()).pipeline());
         float step = VeilGogglesItem.stepFor(parameter.key()) * (float) Math.signum(yoffset);
         float current = GogglesSettingsService.get(stack).value(parameter.key(), parameter.defaultValue());
         // Predicted locally for an instant-feeling knob; the server applies and

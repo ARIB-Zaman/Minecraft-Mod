@@ -104,9 +104,14 @@ public final class GpuFftProcessor {
             bandHighCutoff = Math.max(first, second);
             spectrumOpacity = settings.value("spectrum_opacity", 0.75F);
         } else if (stack.getItem() instanceof VeilGogglesItem) {
-            spectrumOpacity = VEIL_SPECTRUM_OPACITY;
-            spectrumBand = VEIL_SPECTRUM_BAND;
             int mode = Math.round(settings.value(VeilGogglesItem.MODE, VeilGogglesItem.MODE_OFF));
+            // Idle goggles (no blur present, no restoration selected) have nothing
+            // to show or fix, so skip the whole FFT round trip: it isn't free, and
+            // even a no-op pass subtly resamples the screen through a lower-res grid.
+            if (degradation != null || mode != VeilGogglesItem.MODE_OFF) {
+                spectrumOpacity = VEIL_SPECTRUM_OPACITY;
+                spectrumBand = VEIL_SPECTRUM_BAND;
+            }
             if (mode != VeilGogglesItem.MODE_OFF) {
                 VeilKernel estimate = new VeilKernel(
                         VeilKernel.Type.fromIndex(Math.round(settings.value(VeilGogglesItem.KERNEL, 1.0F))),

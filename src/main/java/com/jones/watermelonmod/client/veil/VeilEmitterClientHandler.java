@@ -13,9 +13,18 @@ public final class VeilEmitterClientHandler {
     }
 
     public static void tick(Minecraft client) {
-        if (client.player == null) {
+        // A running trial owns the blur exclusively; an ambient emitter must not
+        // fight it for the same shared degradation state tick by tick.
+        if (client.player == null || VeilTrialState.isActive()) {
             return;
         }
-        VeilEmitterTracker.nearestInRange(client.player.position()).ifPresent(VeilClientState::setDegradation);
+        var nearby = VeilEmitterTracker.nearestInRange(client.player.position());
+        if (nearby.isPresent()) {
+            VeilClientState.setDegradation(nearby.get(), VeilClientState.Source.EMITTER);
+        } else {
+            // Leaving the radius must turn the blur off again — but only if an
+            // emitter was the one that turned it on, not a manual /veil command.
+            VeilClientState.clearIfSource(VeilClientState.Source.EMITTER);
+        }
     }
 }

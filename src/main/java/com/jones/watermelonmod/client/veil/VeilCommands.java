@@ -2,15 +2,24 @@ package com.jones.watermelonmod.client.veil;
 
 import com.jones.watermelonmod.client.fft.FftQuality;
 import com.jones.watermelonmod.client.fft.GpuFftProcessor;
+import com.jones.watermelonmod.goggles.GogglesEquipment;
+import com.jones.watermelonmod.goggles.GogglesSettingsService;
+import com.jones.watermelonmod.item.custom.GogglesItem;
+import com.jones.watermelonmod.item.custom.VeilGogglesItem;
 import com.jones.watermelonmod.veil.VeilKernel;
 import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+
+import java.util.Optional;
 
 /**
  * Client-only test command for the Veil:
@@ -48,6 +57,10 @@ public final class VeilCommands {
                         .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("defocus")
                                 .then(withNoise(RequiredArgumentBuilder.<FabricClientCommandSource, Float>argument("diameter", FloatArgumentType.floatArg(1.0F, 64.0F)),
                                         (context, noise) -> apply(context, VeilKernel.Type.DEFOCUS, FloatArgumentType.getFloat(context, "diameter"), 0.0F, noise))))
+                        .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("trial")
+                                .executes(context -> trial(context, 6))
+                                .then(RequiredArgumentBuilder.<FabricClientCommandSource, Integer>argument("seconds", IntegerArgumentType.integer(2, 15))
+                                        .executes(context -> trial(context, IntegerArgumentType.getInteger(context, "seconds")))))
                         .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("quality")
                                 .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("high").executes(context -> quality(context, FftQuality.HIGH)))
                                 .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("low").executes(context -> quality(context, FftQuality.LOW)))
@@ -68,8 +81,42 @@ public final class VeilCommands {
     }
 
     private static int apply(CommandContext<FabricClientCommandSource> context, VeilKernel.Type type, float size, float angle, float noise) {
-        VeilClientState.setDegradation(new VeilKernel(type, size, angle, noise));
+        VeilClientState.setDegradation(new VeilKernel(type, size, angle, noise), VeilClientState.Source.MANUAL);
         context.getSource().sendFeedback(Component.translatable("command.watermelonmod.veil.on"));
+        return 1;
+    }
+
+    /**
+     * Prototype: applies a random-angle Motion blur (type and restoration mode
+     * fixed to Wiener) and gives the player {@code seconds} to sneak+scroll the
+     * angle close before it's scored. Tests whether one-parameter tuning under
+     * a timer feels fair, before any of this touches real boss combat.
+     */
+    private static int trial(CommandContext<FabricClientCommandSource> context, int seconds) {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null) {
+            return 0;
+        }
+        Optional<ItemStack> goggles = GogglesEquipment.equippedGoggles(client.player)
+                .filter(stack -> stack.getItem() instanceof VeilGogglesItem);
+        if (goggles.isEmpty()) {
+            context.getSource().sendFeedback(Component.translatable("command.watermelonmod.veil.trial_needs_goggles"));
+            return 0;
+        }
+
+        ItemStack stack = goggles.get();
+        GogglesSettingsService.setParameter(stack, VeilGogglesItem.KERNEL, 1.0F);
+        GogglesSettingsService.setParameter(stack, VeilGogglesItem.SIZE, 40.0F);
+        GogglesSettingsService.setParameter(stack, VeilGogglesItem.MODE, 3.0F);
+        GogglesSettingsService.setParameter(stack, VeilGogglesItem.ANGLE, 0.0F);
+        // So scrolling still targets angle even after the trial's timer ends,
+        // instead of falling back to whatever V last left selected.
+        VeilTuningState.select(((GogglesItem) stack.getItem()).pipeline(), VeilGogglesItem.ANGLE);
+
+        float targetAngle = client.player.getRandom().nextInt(181);
+        VeilClientState.setDegradation(new VeilKernel(VeilKernel.Type.MOTION, 40.0F, targetAngle, 0.01F), VeilClientState.Source.TRIAL);
+        VeilTrialState.start(targetAngle, seconds);
+        context.getSource().sendFeedback(Component.translatable("command.watermelonmod.veil.trial_start", seconds));
         return 1;
     }
 

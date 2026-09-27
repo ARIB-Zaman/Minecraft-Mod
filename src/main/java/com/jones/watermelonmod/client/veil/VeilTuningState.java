@@ -26,4 +26,13 @@ public final class VeilTuningState {
         int count = pipeline.parameters().size();
         selectedIndex = Math.floorMod(selectedIndex + 1, Math.max(1, count));
     }
+
+    /** Explicitly points selection at one parameter, e.g. so a trial leaves scrolling on the same setting once it ends. */
+    public static void select(GogglesPipeline pipeline, String key) {
+        List<String> keys = List.copyOf(pipeline.parameters().keySet());
+        int index = keys.indexOf(key);
+        if (index >= 0) {
+            selectedIndex = index;
+        }
+    }
 }

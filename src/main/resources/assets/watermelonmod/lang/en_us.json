@@ -68,4 +68,9 @@
   ,"message.watermelonmod.veil.tuning" : "%s: %s"
   ,"message.watermelonmod.veil.selected" : "Selected: %s"
   ,"key.watermelonmod.veil_cycle_parameter" : "Veil: Select Parameter"
+  ,"command.watermelonmod.veil.trial_needs_goggles" : "Wear Veil Goggles before starting a trial"
+  ,"command.watermelonmod.veil.trial_start" : "Trial started: %s seconds to find the angle"
+  ,"message.watermelonmod.veil.trial_countdown" : "Time: %ss | Angle: %s° | Distance: %s°"
+  ,"message.watermelonmod.veil.trial_success" : "Recomposed! (target was %s°, you were within %s°)"
+  ,"message.watermelonmod.veil.trial_fail" : "Too slow/off. Target was %s° (you were %s° away)"
 }
