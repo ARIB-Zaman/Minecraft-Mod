@@ -23,17 +23,32 @@ public final class GogglesNetworking {
 
         PayloadTypeRegistry.serverboundPlay().register(VeilRecomposedPayload.TYPE, VeilRecomposedPayload.STREAM_CODEC);
         ServerPlayNetworking.registerGlobalReceiver(VeilRecomposedPayload.TYPE, (payload, context) ->
-                recompose(context.player()));
+                recompose(context.player(), payload.convergence()));
+
+        PayloadTypeRegistry.clientboundPlay().register(VeilConvergencePayload.TYPE, VeilConvergencePayload.STREAM_CODEC);
+
+        PayloadTypeRegistry.serverboundPlay().register(VeilConvergenceFailedPayload.TYPE, VeilConvergenceFailedPayload.STREAM_CODEC);
+        ServerPlayNetworking.registerGlobalReceiver(VeilConvergenceFailedPayload.TYPE, (payload, context) ->
+                convergenceFailed(context.player()));
     }
 
-    /** The reward half of the mechanic: a well-timed recompose briefly stuns the nearest Radiation Warden. */
+    /** A well-timed recompose briefly stuns the nearest Radiation Warden — longer after surviving a Convergence. */
     private static final int RECOMPOSE_STAGGER_TICKS = 30;
+    private static final int CONVERGENCE_STAGGER_TICKS = 60;
+    /** Extra damage taken for failing to recompose a Convergence in time. */
+    private static final float CONVERGENCE_FAILURE_DAMAGE = 12.0F;
 
-    private static void recompose(ServerPlayer player) {
+    private static void recompose(ServerPlayer player, boolean convergence) {
         ServerLevel level = (ServerLevel) player.level();
+        int ticks = convergence ? CONVERGENCE_STAGGER_TICKS : RECOMPOSE_STAGGER_TICKS;
         level.getEntitiesOfClass(RadiationWardenEntity.class, player.getBoundingBox().inflate(32.0))
                 .stream().findFirst()
-                .ifPresent(warden -> warden.freezeByBreeze(RECOMPOSE_STAGGER_TICKS));
+                .ifPresent(warden -> warden.freezeByBreeze(ticks));
+    }
+
+    private static void convergenceFailed(ServerPlayer player) {
+        ServerLevel level = (ServerLevel) player.level();
+        player.hurtServer(level, level.damageSources().generic(), CONVERGENCE_FAILURE_DAMAGE);
     }
 
     private static void adjust(ServerPlayer player, AdjustGogglesPayload payload) {

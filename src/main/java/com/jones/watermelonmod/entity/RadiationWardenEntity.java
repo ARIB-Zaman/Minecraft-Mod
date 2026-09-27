@@ -6,6 +6,8 @@ import com.jones.watermelonmod.boss.RadiationWardenProfile;
 import com.jones.watermelonmod.entity.ai.ChaseTargetGoal;
 import com.jones.watermelonmod.entity.ai.RadiationWardenMeleeGoal;
 import com.jones.watermelonmod.entity.ai.SonicRadiationGoal;
+import com.jones.watermelonmod.network.VeilConvergencePayload;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.resources.Identifier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -51,6 +53,12 @@ public final class RadiationWardenEntity extends Monster {
     public final AnimationState attackAnimationState = new AnimationState();
     public final AnimationState emergeAnimationState = new AnimationState();
     private int emergenceTicks;
+    /** Whether the Convergence attack has already fired at each health threshold, so each only happens once per fight. */
+    private boolean convergence50Fired;
+    private boolean convergence25Fired;
+    private static final float CONVERGENCE_DAMAGE = 8.0F;
+    private static final int CONVERGENCE_SECONDS = 3;
+    private static final float CONVERGENCE_SIZE = 60.0F;
     private int tendrilAnimation;
     private int tendrilAnimationO;
     private int heartAnimation;
@@ -109,6 +117,40 @@ public final class RadiationWardenEntity extends Monster {
 
     public boolean isFreezeBreezeFrozen() {
         return entityData.get(FREEZE_BREEZE_TICKS) > 0;
+    }
+
+    public boolean isConvergence50Fired() {
+        return convergence50Fired;
+    }
+
+    public void setConvergence50Fired(boolean fired) {
+        convergence50Fired = fired;
+    }
+
+    public boolean isConvergence25Fired() {
+        return convergence25Fired;
+    }
+
+    public void setConvergence25Fired(boolean fired) {
+        convergence25Fired = fired;
+    }
+
+    /**
+     * The fight's signature moment, fired once at each health threshold: an
+     * unavoidable hit paired with a heavier, tighter Veil trial. Recomposing
+     * it in time earns a long stagger; missing it costs extra damage.
+     */
+    public void triggerConvergence() {
+        if (!(level() instanceof ServerLevel serverLevel) || !(getTarget() instanceof ServerPlayer target)) {
+            return;
+        }
+        if (SilenceDomeEntity.protects(serverLevel, target)) {
+            return;
+        }
+        playSound(SoundEvents.WARDEN_ROAR, 6.0F, 0.8F);
+        serverLevel.broadcastEntityEvent(this, (byte) 62);
+        target.hurtServer(serverLevel, damageSources().sonicBoom(this), CONVERGENCE_DAMAGE);
+        ServerPlayNetworking.send(target, new VeilConvergencePayload(CONVERGENCE_SECONDS, CONVERGENCE_SIZE));
     }
 
     /** Starts the vanilla Warden-style emergence sequence after a shrieker summon. */
@@ -280,6 +322,8 @@ public final class RadiationWardenEntity extends Monster {
         output.putString("radiation_warden_subphase", bossState.subphaseId().toString());
         output.putInt("freeze_breeze_ticks", entityData.get(FREEZE_BREEZE_TICKS));
         output.putInt("radiation_warden_emergence_ticks", emergenceTicks);
+        output.putBoolean("radiation_warden_convergence_50_fired", convergence50Fired);
+        output.putBoolean("radiation_warden_convergence_25_fired", convergence25Fired);
     }
 
     @Override
@@ -293,5 +337,7 @@ public final class RadiationWardenEntity extends Monster {
         }
         entityData.set(FREEZE_BREEZE_TICKS, input.getIntOr("freeze_breeze_ticks", 0));
         emergenceTicks = input.getIntOr("radiation_warden_emergence_ticks", 0);
+        convergence50Fired = input.getBooleanOr("radiation_warden_convergence_50_fired", false);
+        convergence25Fired = input.getBooleanOr("radiation_warden_convergence_25_fired", false);
     }
 }

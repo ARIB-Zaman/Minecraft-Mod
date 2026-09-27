@@ -2,28 +2,36 @@ package com.jones.watermelonmod.client.veil;
 
 /**
  * A short, timed test of resolving one blur parameter (angle) under time
- * pressure. Prototype only — validates whether sneak+scroll tuning feels
- * fair inside a combat-length window, before touching real boss code.
+ * pressure.
  */
 public final class VeilTrialState {
+    /** What started this trial, so success/failure can react appropriately. */
+    public enum TriggerKind {
+        /** The standalone {@code /veil trial} test command. */
+        MANUAL,
+        /** A landed Sonic Radiation hit during normal combat. */
+        NORMAL_HIT,
+        /** The Warden's telegraphed Convergence attack at a health threshold. */
+        CONVERGENCE
+    }
+
     private static boolean active;
     private static long endTimeMillis;
     private static float targetAngle;
-    private static boolean combatTriggered;
+    private static TriggerKind triggerKind = TriggerKind.MANUAL;
 
     private VeilTrialState() {
     }
 
-    public static void start(float targetAngle, int seconds, boolean combatTriggered) {
+    public static void start(float targetAngle, int seconds, TriggerKind triggerKind) {
         VeilTrialState.targetAngle = targetAngle;
-        VeilTrialState.combatTriggered = combatTriggered;
+        VeilTrialState.triggerKind = triggerKind;
         endTimeMillis = System.currentTimeMillis() + seconds * 1000L;
         active = true;
     }
 
-    /** Whether a real hit started this trial, as opposed to the standalone {@code /veil trial} test command. */
-    public static boolean isCombatTriggered() {
-        return combatTriggered;
+    public static TriggerKind triggerKind() {
+        return triggerKind;
     }
 
     public static boolean isActive() {

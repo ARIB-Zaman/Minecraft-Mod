@@ -27,6 +27,22 @@ public final class BossCombatController {
         if (!nextState.equals(boss.bossState())) {
             boss.setBossState(nextState);
         }
+        checkConvergenceThresholds(boss, healthFraction);
+    }
+
+    /**
+     * The Convergence attack is a one-time dramatic event per health
+     * threshold, deliberately kept outside the normal attack-selection
+     * rotation so it can't repeat or be skipped by a bad roll.
+     */
+    private void checkConvergenceThresholds(RadiationWardenEntity boss, double healthFraction) {
+        if (healthFraction <= 0.5 && !boss.isConvergence50Fired()) {
+            boss.setConvergence50Fired(true);
+            boss.triggerConvergence();
+        } else if (healthFraction <= 0.25 && !boss.isConvergence25Fired()) {
+            boss.setConvergence25Fired(true);
+            boss.triggerConvergence();
+        }
     }
 
     public Optional<Identifier> selectAttack(RadiationWardenEntity boss) {

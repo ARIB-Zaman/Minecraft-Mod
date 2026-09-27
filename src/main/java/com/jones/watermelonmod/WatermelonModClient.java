@@ -25,6 +25,8 @@ import com.jones.watermelonmod.item.custom.GreyscaleGogglesItem;
 import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
 import com.jones.watermelonmod.menu.ModMenus;
 import com.jones.watermelonmod.network.VeilBlindPayload;
+import com.jones.watermelonmod.network.VeilConvergenceFailedPayload;
+import com.jones.watermelonmod.network.VeilConvergencePayload;
 import com.jones.watermelonmod.network.VeilRecomposedPayload;
 import com.mojang.blaze3d.platform.InputConstants;
 
@@ -64,7 +66,9 @@ public final class WatermelonModClient implements ClientModInitializer {
         MenuScreens.register(ModMenus.WORKBENCH, WorkbenchScreen::new);
         VeilCommands.register();
         ClientPlayNetworking.registerGlobalReceiver(VeilBlindPayload.TYPE, (payload, context) ->
-                VeilTrials.startRandomAngle(context.player(), payload.seconds(), true));
+                VeilTrials.startRandomAngle(context.player(), payload.seconds(), 40.0F, VeilTrialState.TriggerKind.NORMAL_HIT));
+        ClientPlayNetworking.registerGlobalReceiver(VeilConvergencePayload.TYPE, (payload, context) ->
+                VeilTrials.startRandomAngle(context.player(), payload.seconds(), payload.size(), VeilTrialState.TriggerKind.CONVERGENCE));
         GogglesPipelineRegistry.register(
                 GreyscaleGogglesItem.PIPELINE_ID,
                 new PostEffectGogglesPipeline(WatermelonMod.id("greyscale"))
@@ -124,7 +128,7 @@ public final class WatermelonModClient implements ClientModInitializer {
     }
 
     private static void evaluateVeilTrial(net.minecraft.client.Minecraft client) {
-        boolean combatTriggered = VeilTrialState.isCombatTriggered();
+        VeilTrialState.TriggerKind kind = VeilTrialState.triggerKind();
         VeilTrialState.stop();
         GogglesEquipment.equippedGoggles(client.player)
                 .filter(stack -> stack.getItem() instanceof VeilGogglesItem)
@@ -141,13 +145,16 @@ public final class WatermelonModClient implements ClientModInitializer {
                         client.player.sendSystemMessage(Component.translatable("message.watermelonmod.veil.trial_success",
                                 Math.round(target), Math.round(angularDistance)));
                         client.player.playSound(SoundEvents.PLAYER_LEVELUP, 1.0F, 1.5F);
-                        if (combatTriggered) {
-                            ClientPlayNetworking.send(new VeilRecomposedPayload(Math.round(angularDistance)));
+                        if (kind != VeilTrialState.TriggerKind.MANUAL) {
+                            ClientPlayNetworking.send(new VeilRecomposedPayload(Math.round(angularDistance), kind == VeilTrialState.TriggerKind.CONVERGENCE));
                         }
                     } else {
                         client.player.sendSystemMessage(Component.translatable("message.watermelonmod.veil.trial_fail",
                                 Math.round(target), Math.round(angularDistance)));
                         client.player.playSound(SoundEvents.VILLAGER_NO, 1.0F, 0.8F);
+                        if (kind == VeilTrialState.TriggerKind.CONVERGENCE) {
+                            ClientPlayNetworking.send(new VeilConvergenceFailedPayload(Math.round(angularDistance)));
+                        }
                     }
                 }, VeilClientState::clear);
     }
