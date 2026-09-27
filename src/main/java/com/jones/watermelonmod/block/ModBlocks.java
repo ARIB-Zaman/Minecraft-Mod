@@ -3,6 +3,7 @@ package com.jones.watermelonmod.block;
 import com.jones.watermelonmod.WatermelonMod;
 import com.jones.watermelonmod.block.custom.WorkBench;
 import com.jones.watermelonmod.block.custom.RadiationShriekerBlock;
+import com.jones.watermelonmod.block.custom.VeilEmitterBlock;
 import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -29,6 +30,9 @@ public class ModBlocks {
     public static final Block RADIATION_SHRIEKER = registerBlock("radiation_shrieker",
             properties -> new RadiationShriekerBlock(properties.strength(3.0F, 3.0F).sound(SoundType.SCULK_SHRIEKER))
     );
+    public static final Block VEIL_EMITTER = registerBlock("veil_emitter",
+            properties -> new VeilEmitterBlock(properties.strength(3.0F).sound(SoundType.AMETHYST).lightLevel(state -> 5))
+    );
 
     private static Block registerBlock(String name, Function<BlockBehaviour.Properties, Block> function){
         Block toRegister = function.apply(BlockBehaviour.Properties.of().setId(ResourceKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath(WatermelonMod.MOD_ID, name))));
@@ -48,6 +52,7 @@ public class ModBlocks {
             output.accept(FIRST_BLOCK);
             output.accept(WORKBENCH);
             output.accept(RADIATION_SHRIEKER);
+            output.accept(VEIL_EMITTER);
         });
     }
 }

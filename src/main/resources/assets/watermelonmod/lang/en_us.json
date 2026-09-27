@@ -19,6 +19,7 @@
   "block.watermelonmod.first_block" : "First custom block",
   "block.watermelonmod.workbench" : "Goggles Workbench",
   "block.watermelonmod.radiation_shrieker" : "Radiation Shrieker",
+  "block.watermelonmod.veil_emitter" : "Veil Emitter",
   "container.watermelonmod.workbench" : "Goggles Workbench",
   "gui.watermelonmod.workbench.insert_goggles" : "Insert goggles to configure them",
   "gui.watermelonmod.workbench.greyscale" : "Greyscale intensity",
@@ -64,4 +65,7 @@
   ,"command.watermelonmod.veil.quality" : "FFT quality set to %sx%s"
   ,"command.watermelonmod.veil.quality_auto" : "FFT quality set to automatic"
   ,"message.watermelonmod.fft.quality_lowered" : "Low frame rate: FFT quality lowered to 512x256. Use /veil quality high to undo."
+  ,"message.watermelonmod.veil.tuning" : "%s: %s"
+  ,"message.watermelonmod.veil.selected" : "Selected: %s"
+  ,"key.watermelonmod.veil_cycle_parameter" : "Veil: Select Parameter"
 }

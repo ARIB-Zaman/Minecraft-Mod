@@ -1,11 +1,13 @@
 package com.jones.watermelonmod.client.veil;
 
+import com.jones.watermelonmod.veil.VeilKernel;
+
 import java.util.Optional;
 
 /**
- * The blur the Veil currently applies to this player's view. Only the
- * {@code /veil} test command sets it for now; Veil zones will later feed the
- * same state.
+ * The blur the Veil currently applies to this player's view. Set by the
+ * {@code /veil} test command, or by {@code VeilEmitterClientHandler} whenever
+ * the player is within range of a Veil Emitter block.
  */
 public final class VeilClientState {
     private static VeilKernel degradation;

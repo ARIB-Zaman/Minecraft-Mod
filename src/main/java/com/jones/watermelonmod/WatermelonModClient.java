@@ -9,6 +9,11 @@ import com.jones.watermelonmod.client.sonar.SonarController;
 import com.jones.watermelonmod.client.sonar.SonarHud;
 import com.jones.watermelonmod.client.sonar.SonarState;
 import com.jones.watermelonmod.client.veil.VeilCommands;
+import com.jones.watermelonmod.client.veil.VeilEmitterClientHandler;
+import com.jones.watermelonmod.client.veil.VeilTuningState;
+import com.jones.watermelonmod.goggles.GogglesEquipment;
+import com.jones.watermelonmod.item.custom.GogglesItem;
+import com.jones.watermelonmod.item.custom.VeilGogglesItem;
 import com.jones.watermelonmod.client.workbench.WorkbenchScreen;
 import com.jones.watermelonmod.entity.ModEntities;
 import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
@@ -23,6 +28,7 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.network.chat.Component;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.minecraft.client.renderer.entity.ThrownItemRenderer;
@@ -31,6 +37,9 @@ import net.minecraft.client.renderer.entity.ThrownItemRenderer;
 public final class WatermelonModClient implements ClientModInitializer {
     private static final KeyMapping SONAR_PING_KEY = new KeyMapping(
             "key.watermelonmod.sonar_ping", InputConstants.KEY_G, KeyMapping.Category.GAMEPLAY
+    );
+    private static final KeyMapping VEIL_CYCLE_PARAMETER_KEY = new KeyMapping(
+            "key.watermelonmod.veil_cycle_parameter", InputConstants.KEY_V, KeyMapping.Category.GAMEPLAY
     );
 
     @Override
@@ -55,10 +64,23 @@ public final class WatermelonModClient implements ClientModInitializer {
                 new PostEffectGogglesPipeline(WatermelonMod.id("sharpening"))
         );
         KeyMappingHelper.registerKeyMapping(SONAR_PING_KEY);
+        KeyMappingHelper.registerKeyMapping(VEIL_CYCLE_PARAMETER_KEY);
         HudElementRegistry.addLast(WatermelonMod.id("sonar_hud"), new SonarHud());
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             GogglesPostProcessingController.tick(client);
+            VeilEmitterClientHandler.tick(client);
             GpuFftProcessor.tick(client);
+            if (VEIL_CYCLE_PARAMETER_KEY.consumeClick() && client.player != null) {
+                GogglesEquipment.equippedGoggles(client.player)
+                        .filter(stack -> stack.getItem() instanceof VeilGogglesItem)
+                        .ifPresent(stack -> {
+                            var pipeline = ((GogglesItem) stack.getItem()).pipeline();
+                            VeilTuningState.cycle(pipeline);
+                            var selected = VeilTuningState.selected(pipeline);
+                            client.player.sendOverlayMessage(Component.translatable("message.watermelonmod.veil.selected",
+                                    Component.translatable("gui.watermelonmod.workbench.veil." + selected.key())));
+                        });
+            }
             SonarState.advanceTick();
             if (SONAR_PING_KEY.consumeClick()) {
                 SonarController.ping(client);

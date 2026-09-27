@@ -2,6 +2,7 @@ package com.jones.watermelonmod.client.veil;
 
 import com.jones.watermelonmod.client.fft.FftQuality;
 import com.jones.watermelonmod.client.fft.GpuFftProcessor;
+import com.jones.watermelonmod.veil.VeilKernel;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;

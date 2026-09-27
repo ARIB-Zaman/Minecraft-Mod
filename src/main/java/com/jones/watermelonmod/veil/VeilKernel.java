@@ -1,9 +1,12 @@
-package com.jones.watermelonmod.client.veil;
+package com.jones.watermelonmod.veil;
 
 /**
  * One blur model: a point-spread function plus additive noise. Sizes are in
  * reference pixels (a 1024-wide FFT), so a kernel looks the same at every
  * FFT quality level.
+ *
+ * <p>Lives outside {@code client} because {@link VeilEmitterBlockEntity} must
+ * load on the logical server too.</p>
  */
 public record VeilKernel(Type type, float size, float angleDegrees, float noiseSigma) {
     public enum Type {

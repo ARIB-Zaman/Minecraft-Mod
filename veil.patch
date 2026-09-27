@@ -1,0 +1,1331 @@
+diff --git a/src/main/java/com/jones/watermelonmod/WatermelonModClient.java b/src/main/java/com/jones/watermelonmod/WatermelonModClient.java
+index d97ca31..97d086b 100644
+--- a/src/main/java/com/jones/watermelonmod/WatermelonModClient.java
++++ b/src/main/java/com/jones/watermelonmod/WatermelonModClient.java
+@@ -4,6 +4,7 @@ import com.jones.watermelonmod.client.goggles.GogglesPipelineRegistry;
+ import com.jones.watermelonmod.client.goggles.GogglesPostProcessingController;
+ import com.jones.watermelonmod.client.goggles.PostEffectGogglesPipeline;
+ import com.jones.watermelonmod.client.fft.GpuFftProcessor;
++import com.jones.watermelonmod.client.veil.VeilCommands;
+ import com.jones.watermelonmod.item.custom.GreyscaleGogglesItem;
+ import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
+ import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
+@@ -28,6 +29,7 @@ public final class WatermelonModClient implements ClientModInitializer {
+         EntityRendererRegistry.register(ModEntities.FREEZE_BREEZE_PROJECTILE, ThrownItemRenderer::new);
+         EntityRendererRegistry.register(ModEntities.DAMAGE_BREEZE_PROJECTILE, ThrownItemRenderer::new);
+         MenuScreens.register(ModMenus.WORKBENCH, WorkbenchScreen::new);
++        VeilCommands.register();
+         GogglesPipelineRegistry.register(
+                 GreyscaleGogglesItem.PIPELINE_ID,
+                 new PostEffectGogglesPipeline(WatermelonMod.id("greyscale"))
+diff --git a/src/main/java/com/jones/watermelonmod/client/fft/FftFullscreenPasses.java b/src/main/java/com/jones/watermelonmod/client/fft/FftFullscreenPasses.java
+index c9936c6..79e2e44 100644
+--- a/src/main/java/com/jones/watermelonmod/client/fft/FftFullscreenPasses.java
++++ b/src/main/java/com/jones/watermelonmod/client/fft/FftFullscreenPasses.java
+@@ -28,18 +28,48 @@ final class FftFullscreenPasses {
+     private final Map<String, RenderPipeline> twoInput = new HashMap<>();
+     private final GpuBuffer samplerInfo;
+     private final GpuBuffer config;
+-    private final ByteBuffer data = ByteBuffer.allocateDirect(4 * Float.BYTES).order(ByteOrder.nativeOrder());
++    private final GpuBuffer veilConfig;
++    private final ByteBuffer data = ByteBuffer.allocateDirect(8 * Float.BYTES).order(ByteOrder.nativeOrder());
+ 
+     FftFullscreenPasses() {
+         for (String name : new String[]{"pack_rg", "pack_b", "butterfly", "filter", "band_pass", "reorder"}) {
+-            oneInput.put(name, create(name, false, GpuFormat.RGBA32_FLOAT));
++            oneInput.put(name, create(name, false, GpuFormat.RGBA32_FLOAT, false));
+         }
+-        oneInput.put("composite", create("composite", false, GpuFormat.RGBA8_UNORM));
++        for (String name : new String[]{"veil_degrade", "deconvolve"}) {
++            oneInput.put(name, create(name, false, GpuFormat.RGBA32_FLOAT, true));
++        }
++        oneInput.put("composite", create("composite", false, GpuFormat.RGBA8_UNORM, false));
+         oneInput.put("spectrum_overlay", createOverlay("spectrum_overlay"));
+-        twoInput.put("unpack", create("unpack", true, GpuFormat.RGBA8_UNORM));
+-        twoInput.put("spectrum", create("spectrum", true, GpuFormat.RGBA8_UNORM));
++        twoInput.put("unpack", create("unpack", true, GpuFormat.RGBA8_UNORM, false));
++        twoInput.put("spectrum", create("spectrum", true, GpuFormat.RGBA8_UNORM, false));
+         samplerInfo = buffer("FFT sampler info");
+         config = buffer("FFT config");
++        veilConfig = RenderSystem.getDevice().createBuffer(() -> "watermelonmod Veil config",
++                GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, 8 * Float.BYTES);
++    }
++
++    /** Runs a Veil shader with a blur kernel and restoration settings (the {@code VeilConfig} block). */
++    RenderTarget veil(String shader, RenderTarget input, RenderTarget output, float textureIndex, float[] kernel, float[] restore) {
++        upload(samplerInfo, output.width, output.height, input.width, input.height);
++        upload(config, textureIndex, 0, 0, 0);
++        data.clear();
++        for (float value : kernel) data.putFloat(value);
++        for (float value : restore) data.putFloat(value);
++        data.flip();
++        RenderSystem.getDevice().createCommandEncoder().writeToBuffer(veilConfig.slice(), data);
++        try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(
++                () -> "watermelonmod Veil " + shader,
++                output.getColorTextureView(), Optional.empty(),
++                output.useDepth ? output.getDepthTextureView() : null, OptionalDouble.empty())) {
++            pass.setPipeline(oneInput.get(shader));
++            RenderSystem.bindDefaultUniforms(pass);
++            pass.setUniform("SamplerInfo", samplerInfo);
++            pass.setUniform("FftConfig", config);
++            pass.setUniform("VeilConfig", veilConfig);
++            pass.bindTexture("InSampler", input.getColorTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
++            pass.draw(3, 1, 0, 0);
++        }
++        return output;
+     }
+ 
+     RenderTarget one(String shader, RenderTarget input, RenderTarget output, float x, float y, float z, float w) {
+@@ -76,9 +106,9 @@ final class FftFullscreenPasses {
+         }
+     }
+ 
+-    /** Converts packed RGB complex coefficients into a persistent display-sized spectrum. */
+-    void captureSpectrum(RenderTarget rgSpectrum, RenderTarget blueSpectrum, RenderTarget spectrumOutput) {
+-        two("spectrum", rgSpectrum, blueSpectrum, spectrumOutput, 0, 0, 0, 0);
++    /** Converts packed RGB complex coefficients into a persistent display-sized spectrum; zoom > 1 magnifies around DC. */
++    void captureSpectrum(RenderTarget rgSpectrum, RenderTarget blueSpectrum, RenderTarget spectrumOutput, float zoom) {
++        two("spectrum", rgSpectrum, blueSpectrum, spectrumOutput, zoom, 0, 0, 0);
+     }
+ 
+     /** Alpha-blends a captured spectrum into a corner of the already-composited scene. */
+@@ -86,7 +116,7 @@ final class FftFullscreenPasses {
+         one("spectrum_overlay", spectrumInput, sceneOutput, opacity, 0, 0, 0);
+     }
+ 
+-    private static RenderPipeline create(String shader, boolean twoInputs, GpuFormat outputFormat) {
++    private static RenderPipeline create(String shader, boolean twoInputs, GpuFormat outputFormat, boolean veilUniform) {
+         BindGroupLayout.Builder bindings = BindGroupLayout.builder();
+         if (twoInputs) {
+             bindings.withSampler("RGSampler").withSampler("BSampler");
+@@ -94,6 +124,9 @@ final class FftFullscreenPasses {
+             bindings.withSampler("InSampler");
+         }
+         bindings.withUniform("SamplerInfo", UniformType.UNIFORM_BUFFER).withUniform("FftConfig", UniformType.UNIFORM_BUFFER);
++        if (veilUniform) {
++            bindings.withUniform("VeilConfig", UniformType.UNIFORM_BUFFER);
++        }
+         RenderPipeline pipeline = RenderPipeline.builder(RenderPipelines.POST_PROCESSING_SNIPPET)
+                 .withVertexShader(Identifier.withDefaultNamespace("core/screenquad"))
+                 .withFragmentShader(WatermelonMod.id("fft/" + shader))
+diff --git a/src/main/java/com/jones/watermelonmod/client/fft/FftQuality.java b/src/main/java/com/jones/watermelonmod/client/fft/FftQuality.java
+new file mode 100644
+index 0000000..7923e2a
+--- /dev/null
++++ b/src/main/java/com/jones/watermelonmod/client/fft/FftQuality.java
+@@ -0,0 +1,34 @@
++package com.jones.watermelonmod.client.fft;
++
++/**
++ * Resolution of the GPU FFT. LOW transforms a quarter of the pixels, which is
++ * roughly four times cheaper and keeps laptop GPUs at a playable frame rate.
++ */
++public enum FftQuality {
++    HIGH(10, 9),
++    LOW(9, 8);
++
++    private final int log2Width;
++    private final int log2Height;
++
++    FftQuality(int log2Width, int log2Height) {
++        this.log2Width = log2Width;
++        this.log2Height = log2Height;
++    }
++
++    public int log2Width() {
++        return log2Width;
++    }
++
++    public int log2Height() {
++        return log2Height;
++    }
++
++    public int width() {
++        return 1 << log2Width;
++    }
++
++    public int height() {
++        return 1 << log2Height;
++    }
++}
+diff --git a/src/main/java/com/jones/watermelonmod/client/fft/GpuFftProcessor.java b/src/main/java/com/jones/watermelonmod/client/fft/GpuFftProcessor.java
+index 49b1ed7..bd77357 100644
+--- a/src/main/java/com/jones/watermelonmod/client/fft/GpuFftProcessor.java
++++ b/src/main/java/com/jones/watermelonmod/client/fft/GpuFftProcessor.java
+@@ -1,31 +1,53 @@
+ package com.jones.watermelonmod.client.fft;
+ 
+ import com.jones.watermelonmod.WatermelonMod;
++import com.jones.watermelonmod.client.veil.VeilClientState;
++import com.jones.watermelonmod.client.veil.VeilKernel;
+ import com.jones.watermelonmod.goggles.GogglesEquipment;
++import com.jones.watermelonmod.goggles.GogglesSettings;
+ import com.jones.watermelonmod.goggles.GogglesSettingsService;
+ import com.jones.watermelonmod.item.custom.FrequencyFilterGogglesItem;
+ import com.jones.watermelonmod.item.custom.BandPassGogglesItem;
++import com.jones.watermelonmod.item.custom.VeilGogglesItem;
+ import com.mojang.blaze3d.GpuFormat;
+ import com.mojang.blaze3d.pipeline.RenderTarget;
+ import com.mojang.blaze3d.pipeline.TextureTarget;
+ import com.mojang.blaze3d.systems.RenderSystem;
+ import net.minecraft.client.Minecraft;
++import net.minecraft.network.chat.Component;
++import net.minecraft.world.item.ItemStack;
+ 
+ /**
+- * Fixed-size, fragment-shader 2D FFT.  The small analysis resolution keeps
+- * the demonstration affordable while all intermediate complex values remain
+- * in RGBA32_FLOAT targets rather than Minecraft's usual RGBA8 post targets.
++ * Fixed-size, fragment-shader 2D FFT. The analysis resolution keeps the
++ * effect affordable while all intermediate complex values remain in
++ * RGBA32_FLOAT targets rather than Minecraft's usual RGBA8 post targets.
++ *
++ * <p>Per frame: forward FFT, then the Veil's degradation (G = H*F + N), a
++ * spectrum snapshot of what reaches the eye, the Veil goggles' restoration
++ * filter or another goggles' frequency filter, and the inverse FFT.</p>
+  */
+ public final class GpuFftProcessor {
+-    public static final int WIDTH = 1024;
+-    public static final int HEIGHT = 512;
++    private static final float[] NO_RESTORE = {0.0F, 0.0F, 0.0F, 0.0F};
++    private static final float VEIL_SPECTRUM_OPACITY = 0.85F;
++    /** The Veil overlay shows |f| up to this many cycles per reference pixel at every quality. */
++    private static final float VEIL_SPECTRUM_BAND = 0.25F;
++    /** Automatic quality drops to LOW after this many client ticks (5 s) below the frame-rate floor. */
++    private static final int LOW_FPS_FLOOR = 25;
++    private static final int LOW_FPS_TICKS = 100;
+ 
+     private static boolean active;
+-    private static FilterMode filterMode = FilterMode.GAUSSIAN_LOW_PASS;
++    private static FilterMode filterMode = FilterMode.NONE;
+     private static float cutoff = 0.20F;
+     private static float spectrumOpacity;
++    private static float spectrumBand;
+     private static float bandLowCutoff = 0.05F;
+     private static float bandHighCutoff = 0.25F;
++    private static VeilKernel degradation;
++    private static float[] restoreKernel = NO_RESTORE;
++    private static float[] restoreSettings = NO_RESTORE;
++    private static FftQuality quality = FftQuality.HIGH;
++    private static boolean automaticQuality = true;
++    private static int lowFpsTicks;
+     private static Targets targets;
+     private static FftFullscreenPasses passes;
+ 
+@@ -34,24 +56,77 @@ public final class GpuFftProcessor {
+ 
+     /** Called on the client tick; the actual GPU work is done on render thread. */
+     public static void tick(Minecraft client) {
+-        active = client.player != null && GogglesEquipment.equippedGoggles(client.player).map(stack -> {
+-            if (stack.getItem() instanceof FrequencyFilterGogglesItem) {
+-                filterMode = FilterMode.GAUSSIAN_LOW_PASS;
+-                cutoff = GogglesSettingsService.get(stack).value("cutoff", 0.20F);
+-                spectrumOpacity = GogglesSettingsService.get(stack).value("spectrum_opacity", 0.75F);
+-                return true;
+-            }
+-            if (stack.getItem() instanceof BandPassGogglesItem) {
+-                filterMode = FilterMode.HARD_BAND_PASS;
+-                float first = GogglesSettingsService.get(stack).value("low_cutoff", 0.05F);
+-                float second = GogglesSettingsService.get(stack).value("high_cutoff", 0.25F);
+-                bandLowCutoff = Math.min(first, second);
+-                bandHighCutoff = Math.max(first, second);
+-                spectrumOpacity = GogglesSettingsService.get(stack).value("spectrum_opacity", 0.75F);
+-                return true;
++        filterMode = FilterMode.NONE;
++        spectrumOpacity = 0.0F;
++        spectrumBand = 0.0F;
++        restoreSettings = NO_RESTORE;
++        degradation = null;
++        if (client.player == null) {
++            active = false;
++            return;
++        }
++
++        degradation = VeilClientState.degradation().orElse(null);
++        GogglesEquipment.equippedGoggles(client.player).ifPresent(GpuFftProcessor::readGoggles);
++        active = degradation != null || filterMode != FilterMode.NONE || spectrumOpacity > 0.0F;
++        guardFrameRate(client);
++    }
++
++    public static void setQuality(FftQuality requested) {
++        quality = requested;
++        automaticQuality = false;
++        lowFpsTicks = 0;
++    }
++
++    public static void setAutomaticQuality() {
++        quality = FftQuality.HIGH;
++        automaticQuality = true;
++        lowFpsTicks = 0;
++    }
++
++    private static void readGoggles(ItemStack stack) {
++        GogglesSettings settings = GogglesSettingsService.get(stack);
++        if (stack.getItem() instanceof FrequencyFilterGogglesItem) {
++            filterMode = FilterMode.GAUSSIAN_LOW_PASS;
++            cutoff = settings.value("cutoff", 0.20F);
++            spectrumOpacity = settings.value("spectrum_opacity", 0.75F);
++        } else if (stack.getItem() instanceof BandPassGogglesItem) {
++            filterMode = FilterMode.HARD_BAND_PASS;
++            float first = settings.value("low_cutoff", 0.05F);
++            float second = settings.value("high_cutoff", 0.25F);
++            bandLowCutoff = Math.min(first, second);
++            bandHighCutoff = Math.max(first, second);
++            spectrumOpacity = settings.value("spectrum_opacity", 0.75F);
++        } else if (stack.getItem() instanceof VeilGogglesItem) {
++            spectrumOpacity = VEIL_SPECTRUM_OPACITY;
++            spectrumBand = VEIL_SPECTRUM_BAND;
++            int mode = Math.round(settings.value(VeilGogglesItem.MODE, VeilGogglesItem.MODE_OFF));
++            if (mode != VeilGogglesItem.MODE_OFF) {
++                VeilKernel estimate = new VeilKernel(
++                        VeilKernel.Type.fromIndex(Math.round(settings.value(VeilGogglesItem.KERNEL, 1.0F))),
++                        settings.value(VeilGogglesItem.SIZE, 16.0F),
++                        settings.value(VeilGogglesItem.ANGLE, 0.0F),
++                        0.0F);
++                restoreKernel = estimate.shaderKernel();
++                restoreSettings = new float[]{mode, settings.value(VeilGogglesItem.EPSILON, 0.1F),
++                        (float) Math.pow(10.0, settings.value(VeilGogglesItem.LOG_K, -2.0F)), 0.0F};
+             }
+-            return false;
+-        }).orElse(false);
++        }
++    }
++
++    /** Drops to the cheaper FFT when the frame rate stays low, unless the player chose a quality. */
++    private static void guardFrameRate(Minecraft client) {
++        if (!active || !automaticQuality || quality == FftQuality.LOW) {
++            lowFpsTicks = 0;
++            return;
++        }
++        int fps = client.getFps();
++        lowFpsTicks = fps > 0 && fps < LOW_FPS_FLOOR ? lowFpsTicks + 1 : 0;
++        if (lowFpsTicks >= LOW_FPS_TICKS) {
++            quality = FftQuality.LOW;
++            lowFpsTicks = 0;
++            client.player.sendSystemMessage(Component.translatable("message.watermelonmod.fft.quality_lowered"));
++        }
+     }
+ 
+     /** Invoked from GameRenderer after the vanilla post-chain, before the GUI. */
+@@ -59,35 +134,53 @@ public final class GpuFftProcessor {
+         if (!active || mainTarget.width <= 0 || mainTarget.height <= 0) return;
+         RenderSystem.assertOnRenderThread();
+         ensureResources();
++        int bitsX = targets.quality.log2Width();
++        int bitsY = targets.quality.log2Height();
+ 
+-        passes.one("pack_rg", mainTarget, targets.rgA, 0, 0, 0, 0);
+-        passes.one("pack_b", mainTarget, targets.bA, 0, 0, 0, 0);
+-
+-        RenderTarget rg = transform(targets.rgA, targets.rgB, targets.rgA, targets.rgB, false);
+-        RenderTarget blue = transform(targets.bA, targets.bB, targets.bA, targets.bB, false);
+-        // Capture before filtering/reorder overwrite these raw, centred FFT coefficients.
+-        if (spectrumOpacity > 0.0F) passes.captureSpectrum(rg, blue, targets.spectrum);
+-        String filterShader = filterMode == FilterMode.HARD_BAND_PASS ? "band_pass" : "filter";
+-        float filterLow = filterMode == FilterMode.HARD_BAND_PASS ? bandLowCutoff : cutoff;
+-        float filterHigh = filterMode == FilterMode.HARD_BAND_PASS ? bandHighCutoff : 0.0F;
+-        rg = passes.one(filterShader, rg, other(rg, targets.rgA, targets.rgB), filterLow, filterHigh, 0, 0);
+-        blue = passes.one(filterShader, blue, other(blue, targets.bA, targets.bB), filterLow, filterHigh, 0, 0);
+-        rg = passes.one("reorder", rg, other(rg, targets.rgA, targets.rgB), 0, 0, 0, 0);
+-        blue = passes.one("reorder", blue, other(blue, targets.bA, targets.bB), 0, 0, 0, 0);
+-        rg = transform(rg, other(rg, targets.rgA, targets.rgB), targets.rgA, targets.rgB, true);
+-        blue = transform(blue, other(blue, targets.bA, targets.bB), targets.bA, targets.bB, true);
++        passes.one("pack_rg", mainTarget, targets.rgA, bitsX, bitsY, 0, 0);
++        passes.one("pack_b", mainTarget, targets.bA, bitsX, bitsY, 0, 0);
++
++        RenderTarget rg = transform(targets.rgA, targets.rgB, targets.rgA, targets.rgB, false, bitsX, bitsY);
++        RenderTarget blue = transform(targets.bA, targets.bB, targets.bA, targets.bB, false, bitsX, bitsY);
++        if (degradation != null) {
++            float[] kernel = degradation.shaderKernel();
++            rg = passes.veil("veil_degrade", rg, other(rg, targets.rgA, targets.rgB), 0, kernel, NO_RESTORE);
++            blue = passes.veil("veil_degrade", blue, other(blue, targets.bA, targets.bB), 1, kernel, NO_RESTORE);
++        }
++        // Capture what reaches the eye: after the Veil, before any restoration or filtering.
++        if (spectrumOpacity > 0.0F) {
++            // zoom = (full band) / (shown band), both in cycles per FFT pixel.
++            float zoom = spectrumBand > 0.0F ? 0.5F * targets.quality.width() / (1024.0F * spectrumBand) : 1.0F;
++            passes.captureSpectrum(rg, blue, targets.spectrum, zoom);
++        }
++        if (restoreSettings != NO_RESTORE) {
++            rg = passes.veil("deconvolve", rg, other(rg, targets.rgA, targets.rgB), 0, restoreKernel, restoreSettings);
++            blue = passes.veil("deconvolve", blue, other(blue, targets.bA, targets.bB), 1, restoreKernel, restoreSettings);
++        }
++        if (filterMode != FilterMode.NONE) {
++            String filterShader = filterMode == FilterMode.HARD_BAND_PASS ? "band_pass" : "filter";
++            float filterLow = filterMode == FilterMode.HARD_BAND_PASS ? bandLowCutoff : cutoff;
++            float filterHigh = filterMode == FilterMode.HARD_BAND_PASS ? bandHighCutoff : 0.0F;
++            rg = passes.one(filterShader, rg, other(rg, targets.rgA, targets.rgB), filterLow, filterHigh, 0, 0);
++            blue = passes.one(filterShader, blue, other(blue, targets.bA, targets.bB), filterLow, filterHigh, 0, 0);
++        }
++        rg = passes.one("reorder", rg, other(rg, targets.rgA, targets.rgB), bitsX, bitsY, 0, 0);
++        blue = passes.one("reorder", blue, other(blue, targets.bA, targets.bB), bitsX, bitsY, 0, 0);
++        rg = transform(rg, other(rg, targets.rgA, targets.rgB), targets.rgA, targets.rgB, true, bitsX, bitsY);
++        blue = transform(blue, other(blue, targets.bA, targets.bB), targets.bA, targets.bB, true, bitsX, bitsY);
+ 
+         passes.two("unpack", rg, blue, targets.reconstructed, 0, 0, 0, 0);
+         passes.one("composite", targets.reconstructed, mainTarget, 0, 0, 0, 0);
+         if (spectrumOpacity > 0.0F) passes.overlaySpectrum(targets.spectrum, mainTarget, spectrumOpacity);
+     }
+ 
+-    private static RenderTarget transform(RenderTarget source, RenderTarget destination, RenderTarget first, RenderTarget second, boolean inverse) {
+-        for (int stage = 0; stage < 10; stage++) {
++    private static RenderTarget transform(RenderTarget source, RenderTarget destination, RenderTarget first, RenderTarget second,
++                                          boolean inverse, int bitsX, int bitsY) {
++        for (int stage = 0; stage < bitsX; stage++) {
+             source = passes.one("butterfly", source, destination, stage, 0, inverse ? 1 : 0, 0);
+             destination = other(source, first, second);
+         }
+-        for (int stage = 0; stage < 9; stage++) {
++        for (int stage = 0; stage < bitsY; stage++) {
+             source = passes.one("butterfly", source, destination, stage, 1, inverse ? 1 : 0, 0);
+             destination = other(source, first, second);
+         }
+@@ -99,28 +192,50 @@ public final class GpuFftProcessor {
+     }
+ 
+     private static void ensureResources() {
+-        if (targets == null) {
+-            targets = new Targets();
++        if (passes == null) {
+             passes = new FftFullscreenPasses();
+-            WatermelonMod.LOGGER.info("Created 1024x512 floating-point FFT render targets");
++        }
++        if (targets == null || targets.quality != quality) {
++            if (targets != null) {
++                targets.destroy();
++            }
++            targets = new Targets(quality);
++            WatermelonMod.LOGGER.info("Created {}x{} floating-point FFT render targets", quality.width(), quality.height());
+         }
+     }
+ 
+     private static final class Targets {
+-        final TextureTarget rgA = target("FFT RG ping", GpuFormat.RGBA32_FLOAT);
+-        final TextureTarget rgB = target("FFT RG pong", GpuFormat.RGBA32_FLOAT);
+-        final TextureTarget bA = target("FFT B ping", GpuFormat.RGBA32_FLOAT);
+-        final TextureTarget bB = target("FFT B pong", GpuFormat.RGBA32_FLOAT);
+-        final TextureTarget reconstructed = target("FFT reconstructed", GpuFormat.RGBA8_UNORM);
+-        // A compact, persistent snapshot of the forward spectrum for the PIP overlay.
+-        final TextureTarget spectrum = new TextureTarget("watermelonmod FFT spectrum", 256, 128, false, GpuFormat.RGBA8_UNORM);
+-
+-        private static TextureTarget target(String name, GpuFormat format) {
+-            return new TextureTarget("watermelonmod " + name, WIDTH, HEIGHT, false, format);
++        final FftQuality quality;
++        final TextureTarget rgA;
++        final TextureTarget rgB;
++        final TextureTarget bA;
++        final TextureTarget bB;
++        final TextureTarget reconstructed;
++        // A compact, persistent, square snapshot of the forward spectrum for the PIP overlay.
++        final TextureTarget spectrum = new TextureTarget("watermelonmod FFT spectrum", 256, 256, false, GpuFormat.RGBA8_UNORM);
++
++        Targets(FftQuality quality) {
++            this.quality = quality;
++            rgA = target("FFT RG ping", GpuFormat.RGBA32_FLOAT);
++            rgB = target("FFT RG pong", GpuFormat.RGBA32_FLOAT);
++            bA = target("FFT B ping", GpuFormat.RGBA32_FLOAT);
++            bB = target("FFT B pong", GpuFormat.RGBA32_FLOAT);
++            reconstructed = target("FFT reconstructed", GpuFormat.RGBA8_UNORM);
++        }
++
++        private TextureTarget target(String name, GpuFormat format) {
++            return new TextureTarget("watermelonmod " + name, quality.width(), quality.height(), false, format);
++        }
++
++        void destroy() {
++            for (TextureTarget target : new TextureTarget[]{rgA, rgB, bA, bB, reconstructed, spectrum}) {
++                target.destroyBuffers();
++            }
+         }
+     }
+ 
+     private enum FilterMode {
++        NONE,
+         GAUSSIAN_LOW_PASS,
+         HARD_BAND_PASS
+     }
+diff --git a/src/main/java/com/jones/watermelonmod/client/veil/VeilClientState.java b/src/main/java/com/jones/watermelonmod/client/veil/VeilClientState.java
+new file mode 100644
+index 0000000..de925d2
+--- /dev/null
++++ b/src/main/java/com/jones/watermelonmod/client/veil/VeilClientState.java
+@@ -0,0 +1,27 @@
++package com.jones.watermelonmod.client.veil;
++
++import java.util.Optional;
++
++/**
++ * The blur the Veil currently applies to this player's view. Only the
++ * {@code /veil} test command sets it for now; Veil zones will later feed the
++ * same state.
++ */
++public final class VeilClientState {
++    private static VeilKernel degradation;
++
++    private VeilClientState() {
++    }
++
++    public static Optional<VeilKernel> degradation() {
++        return Optional.ofNullable(degradation);
++    }
++
++    public static void setDegradation(VeilKernel kernel) {
++        degradation = kernel;
++    }
++
++    public static void clear() {
++        degradation = null;
++    }
++}
+diff --git a/src/main/java/com/jones/watermelonmod/client/veil/VeilCommands.java b/src/main/java/com/jones/watermelonmod/client/veil/VeilCommands.java
+new file mode 100644
+index 0000000..056c1c3
+--- /dev/null
++++ b/src/main/java/com/jones/watermelonmod/client/veil/VeilCommands.java
+@@ -0,0 +1,85 @@
++package com.jones.watermelonmod.client.veil;
++
++import com.jones.watermelonmod.client.fft.FftQuality;
++import com.jones.watermelonmod.client.fft.GpuFftProcessor;
++import com.mojang.brigadier.arguments.FloatArgumentType;
++import com.mojang.brigadier.builder.LiteralArgumentBuilder;
++import com.mojang.brigadier.builder.RequiredArgumentBuilder;
++import com.mojang.brigadier.builder.ArgumentBuilder;
++import com.mojang.brigadier.context.CommandContext;
++import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
++import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
++import net.minecraft.network.chat.Component;
++
++/**
++ * Client-only test command for the Veil:
++ * <pre>
++ * /veil gaussian &lt;sigma&gt; [noise]
++ * /veil motion &lt;length&gt; &lt;angle&gt; [noise]
++ * /veil defocus &lt;diameter&gt; [noise]
++ * /veil off
++ * /veil quality high|low|auto
++ * </pre>
++ */
++public final class VeilCommands {
++    private static final float DEFAULT_NOISE = 0.003F;
++    private static final float MAX_NOISE = 0.05F;
++
++    private VeilCommands() {
++    }
++
++    public static void register() {
++        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
++                LiteralArgumentBuilder.<FabricClientCommandSource>literal("veil")
++                        .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("off").executes(context -> {
++                            VeilClientState.clear();
++                            context.getSource().sendFeedback(Component.translatable("command.watermelonmod.veil.off"));
++                            return 1;
++                        }))
++                        .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("gaussian")
++                                .then(withNoise(RequiredArgumentBuilder.<FabricClientCommandSource, Float>argument("sigma", FloatArgumentType.floatArg(0.5F, 32.0F)),
++                                        (context, noise) -> apply(context, VeilKernel.Type.GAUSSIAN, FloatArgumentType.getFloat(context, "sigma"), 0.0F, noise))))
++                        .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("motion")
++                                .then(RequiredArgumentBuilder.<FabricClientCommandSource, Float>argument("length", FloatArgumentType.floatArg(1.0F, 64.0F))
++                                        .then(withNoise(RequiredArgumentBuilder.<FabricClientCommandSource, Float>argument("angle", FloatArgumentType.floatArg(0.0F, 180.0F)),
++                                                (context, noise) -> apply(context, VeilKernel.Type.MOTION, FloatArgumentType.getFloat(context, "length"),
++                                                        FloatArgumentType.getFloat(context, "angle"), noise)))))
++                        .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("defocus")
++                                .then(withNoise(RequiredArgumentBuilder.<FabricClientCommandSource, Float>argument("diameter", FloatArgumentType.floatArg(1.0F, 64.0F)),
++                                        (context, noise) -> apply(context, VeilKernel.Type.DEFOCUS, FloatArgumentType.getFloat(context, "diameter"), 0.0F, noise))))
++                        .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("quality")
++                                .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("high").executes(context -> quality(context, FftQuality.HIGH)))
++                                .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("low").executes(context -> quality(context, FftQuality.LOW)))
++                                .then(LiteralArgumentBuilder.<FabricClientCommandSource>literal("auto").executes(context -> {
++                                    GpuFftProcessor.setAutomaticQuality();
++                                    context.getSource().sendFeedback(Component.translatable("command.watermelonmod.veil.quality_auto"));
++                                    return 1;
++                                })))
++        ));
++    }
++
++    /** Adds an optional trailing {@code noise} argument to a blur-parameter node. */
++    private static <T extends ArgumentBuilder<FabricClientCommandSource, T>> T withNoise(T node, KernelAction action) {
++        return node
++                .executes(context -> action.run(context, DEFAULT_NOISE))
++                .then(RequiredArgumentBuilder.<FabricClientCommandSource, Float>argument("noise", FloatArgumentType.floatArg(0.0F, MAX_NOISE))
++                        .executes(context -> action.run(context, FloatArgumentType.getFloat(context, "noise"))));
++    }
++
++    private static int apply(CommandContext<FabricClientCommandSource> context, VeilKernel.Type type, float size, float angle, float noise) {
++        VeilClientState.setDegradation(new VeilKernel(type, size, angle, noise));
++        context.getSource().sendFeedback(Component.translatable("command.watermelonmod.veil.on"));
++        return 1;
++    }
++
++    private static int quality(CommandContext<FabricClientCommandSource> context, FftQuality quality) {
++        GpuFftProcessor.setQuality(quality);
++        context.getSource().sendFeedback(Component.translatable("command.watermelonmod.veil.quality", quality.width(), quality.height()));
++        return 1;
++    }
++
++    @FunctionalInterface
++    private interface KernelAction {
++        int run(CommandContext<FabricClientCommandSource> context, float noise);
++    }
++}
+diff --git a/src/main/java/com/jones/watermelonmod/client/veil/VeilKernel.java b/src/main/java/com/jones/watermelonmod/client/veil/VeilKernel.java
+new file mode 100644
+index 0000000..34a8c04
+--- /dev/null
++++ b/src/main/java/com/jones/watermelonmod/client/veil/VeilKernel.java
+@@ -0,0 +1,24 @@
++package com.jones.watermelonmod.client.veil;
++
++/**
++ * One blur model: a point-spread function plus additive noise. Sizes are in
++ * reference pixels (a 1024-wide FFT), so a kernel looks the same at every
++ * FFT quality level.
++ */
++public record VeilKernel(Type type, float size, float angleDegrees, float noiseSigma) {
++    public enum Type {
++        GAUSSIAN,
++        MOTION,
++        DEFOCUS;
++
++        public static Type fromIndex(int index) {
++            Type[] types = values();
++            return types[Math.clamp(index, 0, types.length - 1)];
++        }
++    }
++
++    /** Layout of the shaders' {@code VeilConfig.Kernel}: type, size, angle (radians), noise sigma. */
++    public float[] shaderKernel() {
++        return new float[]{type.ordinal(), size, (float) Math.toRadians(angleDegrees), noiseSigma};
++    }
++}
+diff --git a/src/main/java/com/jones/watermelonmod/client/workbench/WorkbenchScreen.java b/src/main/java/com/jones/watermelonmod/client/workbench/WorkbenchScreen.java
+index f47bc70..979d459 100644
+--- a/src/main/java/com/jones/watermelonmod/client/workbench/WorkbenchScreen.java
++++ b/src/main/java/com/jones/watermelonmod/client/workbench/WorkbenchScreen.java
+@@ -7,6 +7,7 @@ import com.jones.watermelonmod.item.custom.ConvolutionGogglesItem;
+ import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
+ import com.jones.watermelonmod.item.custom.FrequencyFilterGogglesItem;
+ import com.jones.watermelonmod.item.custom.BandPassGogglesItem;
++import com.jones.watermelonmod.item.custom.VeilGogglesItem;
+ import com.jones.watermelonmod.menu.WorkbenchMenu;
+ import net.fabricmc.api.EnvType;
+ import net.fabricmc.api.Environment;
+@@ -18,6 +19,8 @@ import net.minecraft.network.chat.Component;
+ import net.minecraft.util.Mth;
+ import net.minecraft.world.entity.player.Inventory;
+ 
++import java.util.List;
++
+ /**
+  * A deliberately texture-free workbench UI. Its slider is driven by pipeline
+  * metadata, so adding another one-parameter goggles type needs no GUI fork.
+@@ -34,6 +37,12 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
+     private static final int ROTATE_Y = 91;
+     private static final int ROTATE_WIDTH = 74;
+     private static final int ROTATE_HEIGHT = 15;
++    private static final int SLIDERS_PER_PAGE = 3;
++    private static final int PAGE_X = 10;
++    private static final int PAGE_Y = 68;
++    private static final int PAGE_WIDTH = 48;
++    private static final int PAGE_HEIGHT = 14;
++    private int page;
+ 
+     public WorkbenchScreen(WorkbenchMenu menu, Inventory inventory, Component title) {
+         super(menu, inventory, title, 230, 234);
+@@ -74,13 +83,48 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
+             return;
+         }
+ 
+-        int index = 0;
+-        for (GogglesParameter parameter : goggles.pipeline().parameters().values()) {
+-            if (index == 3) break;
+-            extractSlider(graphics, x, y, goggles, parameter, index, Math.min(3, goggles.pipeline().parameters().size()));
+-            index++;
++        List<GogglesParameter> parameters = List.copyOf(goggles.pipeline().parameters().values());
++        int first = firstVisibleSlider(parameters.size());
++        int shown = visibleSliderCount(parameters.size());
++        for (int row = 0; row < shown; row++) {
++            extractSlider(graphics, x, y, goggles, parameters.get(first + row), first + row, row);
++        }
++        if (pageCount(parameters.size()) > 1) {
++            extractPageButton(graphics, x, y, parameters.size());
++        } else if (shown < 3) {
++            graphics.text(font, Component.literal(goggles.pipeline().id().getPath()), x + SLIDER_X, y + (shown > 1 ? 116 : 102), 0xFF555555, false);
+         }
+-        if (index < 3) graphics.text(font, Component.literal(goggles.pipeline().id().getPath()), x + SLIDER_X, y + (index > 1 ? 116 : 102), 0xFF555555, false);
++    }
++
++    private int parameterCount() {
++        return menu.gogglesStack().getItem() instanceof GogglesItem goggles
++                ? Math.min(WorkbenchMenu.SLIDER_COUNT, goggles.pipeline().parameters().size()) : 0;
++    }
++
++    private static int pageCount(int parameterCount) {
++        return Math.max(1, (Math.min(parameterCount, WorkbenchMenu.SLIDER_COUNT) + SLIDERS_PER_PAGE - 1) / SLIDERS_PER_PAGE);
++    }
++
++    private int firstVisibleSlider(int parameterCount) {
++        if (page >= pageCount(parameterCount)) page = 0;
++        return page * SLIDERS_PER_PAGE;
++    }
++
++    private int visibleSliderCount(int parameterCount) {
++        return Math.max(0, Math.min(SLIDERS_PER_PAGE, Math.min(parameterCount, WorkbenchMenu.SLIDER_COUNT) - firstVisibleSlider(parameterCount)));
++    }
++
++    private void extractPageButton(GuiGraphicsExtractor graphics, int x, int y, int parameterCount) {
++        graphics.fill(x + PAGE_X, y + PAGE_Y, x + PAGE_X + PAGE_WIDTH, y + PAGE_Y + PAGE_HEIGHT, 0xFF555555);
++        graphics.fill(x + PAGE_X + 1, y + PAGE_Y + 1, x + PAGE_X + PAGE_WIDTH - 1, y + PAGE_Y + PAGE_HEIGHT - 1, 0xFF82A9C4);
++        Component label = Component.translatable("gui.watermelonmod.workbench.page", page + 1, pageCount(parameterCount));
++        graphics.text(font, label, x + PAGE_X + (PAGE_WIDTH - font.width(label)) / 2, y + PAGE_Y + 3, 0xFF202020, false);
++    }
++
++    private boolean isOverPageButton(double mouseX, double mouseY) {
++        return pageCount(parameterCount()) > 1
++                && mouseX >= leftPos + PAGE_X && mouseX < leftPos + PAGE_X + PAGE_WIDTH
++                && mouseY >= topPos + PAGE_Y && mouseY < topPos + PAGE_Y + PAGE_HEIGHT;
+     }
+ 
+     @Override
+@@ -99,6 +143,10 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
+             }
+             return true;
+         }
++        if (isOverPageButton(event.x(), event.y())) {
++            page = (page + 1) % pageCount(parameterCount());
++            return true;
++        }
+         int slider = sliderAt(event.x(), event.y());
+         if (slider >= 0 && menu.gogglesStack().getItem() instanceof GogglesItem) {
+             draggingSlider = slider;
+@@ -123,8 +171,10 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
+         return super.mouseReleased(event);
+     }
+ 
+-    private void extractSlider(GuiGraphicsExtractor graphics, int x, int y, GogglesItem goggles, GogglesParameter parameter, int index, int count) {
+-        Component label = goggles instanceof BandPassGogglesItem
++    private void extractSlider(GuiGraphicsExtractor graphics, int x, int y, GogglesItem goggles, GogglesParameter parameter, int index, int row) {
++        Component label = goggles instanceof VeilGogglesItem
++                ? Component.translatable("gui.watermelonmod.workbench.veil." + parameter.key())
++                : goggles instanceof BandPassGogglesItem
+                 ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.band_low_cutoff" : index == 1 ? "gui.watermelonmod.workbench.band_high_cutoff" : "gui.watermelonmod.workbench.spectrum_opacity")
+                 : goggles instanceof FrequencyFilterGogglesItem
+                     ? Component.translatable(index == 0 ? "gui.watermelonmod.workbench.frequency_cutoff" : "gui.watermelonmod.workbench.spectrum_opacity")
+@@ -134,23 +184,32 @@ public final class WorkbenchScreen extends AbstractContainerScreen<WorkbenchMenu
+         int step = 29;
+         int labelY = 25;
+         int baseTrackY = SLIDER_Y;
+-        int offsetY = index * step;
++        int offsetY = row * step;
+         graphics.text(font, label, x + SLIDER_X, y + labelY + offsetY, 0xFF404040, false);
+         int trackY = y + baseTrackY + offsetY;
+         graphics.fill(x + SLIDER_X, trackY, x + SLIDER_X + SLIDER_WIDTH, trackY + 4, 0xFF555555);
+         int knobX = x + SLIDER_X + Math.round((SLIDER_WIDTH - 6) * menu.sliderPercent(index) / 100.0F);
+         graphics.fill(knobX, trackY - 4, knobX + 6, trackY + 8, 0xFF2F75B5);
+-        graphics.text(font, Component.literal(menu.sliderPercent(index) + "%"), x + 198, trackY - 2, 0xFF404040, false);
++        if (goggles instanceof VeilGogglesItem) {
++            // Real units, right-aligned on the label line, so players can enter what they measured.
++            float value = parameter.minimum() + (parameter.maximum() - parameter.minimum()) * menu.sliderPercent(index) / 100.0F;
++            Component shown = VeilGogglesItem.describe(parameter.key(), value);
++            graphics.text(font, shown, x + SLIDER_X + SLIDER_WIDTH - font.width(shown), y + labelY + offsetY, 0xFF2F4F7F, false);
++        } else {
++            graphics.text(font, Component.literal(menu.sliderPercent(index) + "%"), x + 198, trackY - 2, 0xFF404040, false);
++        }
+     }
+ 
+     private int sliderAt(double mouseX, double mouseY) {
+         if (mouseX < leftPos + SLIDER_X || mouseX > leftPos + SLIDER_X + SLIDER_WIDTH) return -1;
+-        int count = menu.gogglesStack().getItem() instanceof GogglesItem goggles ? Math.min(3, goggles.pipeline().parameters().size()) : 0;
++        int parameters = parameterCount();
++        int first = firstVisibleSlider(parameters);
++        int shown = visibleSliderCount(parameters);
+         int step = 29;
+         int baseTrackY = SLIDER_Y;
+-        for (int index = 0; index < count; index++) {
+-            int trackY = topPos + baseTrackY + index * step;
+-            if (mouseY >= trackY - 7 && mouseY <= trackY + 11) return index;
++        for (int row = 0; row < shown; row++) {
++            int trackY = topPos + baseTrackY + row * step;
++            if (mouseY >= trackY - 7 && mouseY <= trackY + 11) return first + row;
+         }
+         return -1;
+     }
+diff --git a/src/main/java/com/jones/watermelonmod/item/ModItems.java b/src/main/java/com/jones/watermelonmod/item/ModItems.java
+index 8ff0e44..41bd50e 100644
+--- a/src/main/java/com/jones/watermelonmod/item/ModItems.java
++++ b/src/main/java/com/jones/watermelonmod/item/ModItems.java
+@@ -6,6 +6,7 @@ import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
+ import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
+ import com.jones.watermelonmod.item.custom.FrequencyFilterGogglesItem;
+ import com.jones.watermelonmod.item.custom.BandPassGogglesItem;
++import com.jones.watermelonmod.item.custom.VeilGogglesItem;
+ import com.jones.watermelonmod.item.custom.EchoFunnelItem;
+ import com.jones.watermelonmod.item.custom.SilenceBreezeItem;
+ import com.jones.watermelonmod.item.custom.FreezeBreezeItem;
+@@ -29,6 +30,7 @@ public class ModItems {
+     public static final Item SHARPENING_GOGGLES = registerItem("sharpening_goggles", SharpeningGogglesItem::new);
+     public static final Item FREQUENCY_FILTER_GOGGLES = registerItem("frequency_filter_goggles", FrequencyFilterGogglesItem::new);
+     public static final Item BAND_PASS_GOGGLES = registerItem("band_pass_goggles", BandPassGogglesItem::new);
++    public static final Item VEIL_GOGGLES = registerItem("veil_goggles", VeilGogglesItem::new);
+     public static final Item ECHO_FUNNEL = registerItem("echo_funnel", EchoFunnelItem::new);
+     public static final Item SILENCE_BREEZE = registerItem("silence_breeze", properties -> new SilenceBreezeItem(properties.stacksTo(16)));
+     public static final Item FREEZE_BREEZE = registerItem("freeze_breeze", properties -> new FreezeBreezeItem(properties.stacksTo(16)));
+@@ -49,6 +51,7 @@ public class ModItems {
+             output.accept(SHARPENING_GOGGLES);
+             output.accept(FREQUENCY_FILTER_GOGGLES);
+             output.accept(BAND_PASS_GOGGLES);
++            output.accept(VEIL_GOGGLES);
+             output.accept(ECHO_FUNNEL);
+             output.accept(SILENCE_BREEZE);
+             output.accept(FREEZE_BREEZE);
+diff --git a/src/main/java/com/jones/watermelonmod/item/custom/VeilGogglesItem.java b/src/main/java/com/jones/watermelonmod/item/custom/VeilGogglesItem.java
+new file mode 100644
+index 0000000..82fbd1f
+--- /dev/null
++++ b/src/main/java/com/jones/watermelonmod/item/custom/VeilGogglesItem.java
+@@ -0,0 +1,66 @@
++package com.jones.watermelonmod.item.custom;
++
++import com.jones.watermelonmod.WatermelonMod;
++import com.jones.watermelonmod.goggles.GogglesParameter;
++import com.jones.watermelonmod.goggles.GogglesPipeline;
++import net.minecraft.core.component.DataComponents;
++import net.minecraft.network.chat.Component;
++import net.minecraft.resources.Identifier;
++import net.minecraft.world.item.Item;
++import net.minecraft.world.item.component.DyedItemColor;
++import net.minecraft.world.item.equipment.ArmorMaterials;
++
++import java.util.LinkedHashMap;
++import java.util.Locale;
++import java.util.Map;
++
++/**
++ * Deconvolution goggles. The wearer estimates the Veil's blur (first workbench
++ * page) and picks a restoration filter (second page): the inverse filter 1/H,
++ * a thresholded pseudo-inverse, or the Wiener filter H / (H^2 + K).
++ */
++public final class VeilGogglesItem extends GogglesItem {
++    public static final Identifier PIPELINE_ID = WatermelonMod.id("veil");
++    public static final String KERNEL = "kernel";
++    public static final String SIZE = "size";
++    public static final String ANGLE = "angle";
++    public static final String MODE = "mode";
++    public static final String EPSILON = "epsilon";
++    public static final String LOG_K = "log_k";
++    public static final int MODE_OFF = 0;
++    public static final GogglesPipeline PIPELINE = new GogglesPipeline(PIPELINE_ID, parameters());
++
++    private static final String[] KERNEL_NAMES = {"gaussian", "motion", "defocus"};
++    private static final String[] MODE_NAMES = {"off", "inverse", "pseudo_inverse", "wiener"};
++
++    public VeilGogglesItem(Item.Properties properties) {
++        super(ArmorMaterials.LEATHER, PIPELINE,
++                properties.component(DataComponents.DYED_COLOR, new DyedItemColor(0x7A4FB5)));
++    }
++
++    private static Map<String, GogglesParameter> parameters() {
++        Map<String, GogglesParameter> parameters = new LinkedHashMap<>();
++        // Page 1: the wearer's estimate of the blur.
++        parameters.put(KERNEL, new GogglesParameter(KERNEL, 1.0F, 0.0F, 2.0F));
++        parameters.put(SIZE, new GogglesParameter(SIZE, 16.0F, 1.0F, 64.0F));
++        parameters.put(ANGLE, new GogglesParameter(ANGLE, 0.0F, 0.0F, 180.0F));
++        // Page 2: how to undo it.
++        parameters.put(MODE, new GogglesParameter(MODE, MODE_OFF, 0.0F, 3.0F));
++        parameters.put(EPSILON, new GogglesParameter(EPSILON, 0.1F, 0.01F, 0.5F));
++        parameters.put(LOG_K, new GogglesParameter(LOG_K, -2.0F, -5.0F, 0.0F));
++        return parameters;
++    }
++
++    /** Human-readable value for the workbench, with units instead of a percentage. */
++    public static Component describe(String key, float value) {
++        return switch (key) {
++            case KERNEL -> Component.translatable("gui.watermelonmod.workbench.veil.kernel." + KERNEL_NAMES[Math.clamp(Math.round(value), 0, 2)]);
++            case MODE -> Component.translatable("gui.watermelonmod.workbench.veil.mode." + MODE_NAMES[Math.clamp(Math.round(value), 0, 3)]);
++            case SIZE -> Component.literal(String.format(Locale.ROOT, "%.1f px", value));
++            case ANGLE -> Component.literal(String.format(Locale.ROOT, "%.0f°", value));
++            case EPSILON -> Component.literal(String.format(Locale.ROOT, "%.2f", value));
++            case LOG_K -> Component.literal(String.format(Locale.ROOT, "10^%.1f", value));
++            default -> Component.literal(String.format(Locale.ROOT, "%.2f", value));
++        };
++    }
++}
+diff --git a/src/main/java/com/jones/watermelonmod/menu/WorkbenchMenu.java b/src/main/java/com/jones/watermelonmod/menu/WorkbenchMenu.java
+index 8582a31..b72e217 100644
+--- a/src/main/java/com/jones/watermelonmod/menu/WorkbenchMenu.java
++++ b/src/main/java/com/jones/watermelonmod/menu/WorkbenchMenu.java
+@@ -28,7 +28,9 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
+     private static final int PLAYER_SLOT_START = 1;
+     private static final int PLAYER_SLOT_END = 37;
+     private final Container workbench;
+-    private final DataSlot[] sliderPercents = {DataSlot.standalone(), DataSlot.standalone(), DataSlot.standalone()};
++    /** Up to six pipeline parameters; the screen shows them three per page. */
++    public static final int SLIDER_COUNT = 6;
++    private final DataSlot[] sliderPercents = createSliderSlots();
+ 
+     public WorkbenchMenu(int containerId, Inventory inventory) {
+         this(containerId, inventory, new SimpleContainer(1));
+@@ -53,6 +55,12 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
+         refreshSliderFromStack();
+     }
+ 
++    private static DataSlot[] createSliderSlots() {
++        DataSlot[] slots = new DataSlot[SLIDER_COUNT];
++        for (int index = 0; index < slots.length; index++) slots[index] = DataSlot.standalone();
++        return slots;
++    }
++
+     public int sliderPercent() { return sliderPercent(0); }
+     public int sliderPercent(int index) { return index >= 0 && index < sliderPercents.length ? sliderPercents[index].get() : 0; }
+     public static int sliderButtonId(int parameterIndex, int percent) {
+diff --git a/src/main/resources/assets/watermelonmod/items/veil_goggles.json b/src/main/resources/assets/watermelonmod/items/veil_goggles.json
+new file mode 100644
+index 0000000..f74098e
+--- /dev/null
++++ b/src/main/resources/assets/watermelonmod/items/veil_goggles.json
+@@ -0,0 +1,3 @@
++{
++  "model": {"type": "minecraft:model", "model": "watermelonmod:item/veil_goggles"}
++}
+diff --git a/src/main/resources/assets/watermelonmod/lang/en_us.json b/src/main/resources/assets/watermelonmod/lang/en_us.json
+index 1644069..960edc5 100644
+--- a/src/main/resources/assets/watermelonmod/lang/en_us.json
++++ b/src/main/resources/assets/watermelonmod/lang/en_us.json
+@@ -40,4 +40,24 @@
+   ,"message.watermelonmod.echo_funnel.banked" : "Signal frequencies banked"
+   ,"message.watermelonmod.echo_funnel.insufficient_points" : "Not enough bank points"
+   ,"message.watermelonmod.echo_funnel.redeemed" : "Echo Funnel item redeemed"
++  ,"item.watermelonmod.veil_goggles" : "Veil Goggles"
++  ,"gui.watermelonmod.workbench.page" : "Page %s/%s"
++  ,"gui.watermelonmod.workbench.veil.kernel" : "Blur type"
++  ,"gui.watermelonmod.workbench.veil.size" : "Blur size"
++  ,"gui.watermelonmod.workbench.veil.angle" : "Blur angle"
++  ,"gui.watermelonmod.workbench.veil.mode" : "Restoration"
++  ,"gui.watermelonmod.workbench.veil.epsilon" : "Threshold ε"
++  ,"gui.watermelonmod.workbench.veil.log_k" : "Wiener K"
++  ,"gui.watermelonmod.workbench.veil.kernel.gaussian" : "Gaussian"
++  ,"gui.watermelonmod.workbench.veil.kernel.motion" : "Motion"
++  ,"gui.watermelonmod.workbench.veil.kernel.defocus" : "Defocus"
++  ,"gui.watermelonmod.workbench.veil.mode.off" : "Off"
++  ,"gui.watermelonmod.workbench.veil.mode.inverse" : "Inverse"
++  ,"gui.watermelonmod.workbench.veil.mode.pseudo_inverse" : "Pseudo-inverse"
++  ,"gui.watermelonmod.workbench.veil.mode.wiener" : "Wiener"
++  ,"command.watermelonmod.veil.on" : "The Veil distorts your view"
++  ,"command.watermelonmod.veil.off" : "The Veil lifts"
++  ,"command.watermelonmod.veil.quality" : "FFT quality set to %sx%s"
++  ,"command.watermelonmod.veil.quality_auto" : "FFT quality set to automatic"
++  ,"message.watermelonmod.fft.quality_lowered" : "Low frame rate: FFT quality lowered to 512x256. Use /veil quality high to undo."
+ }
+diff --git a/src/main/resources/assets/watermelonmod/models/item/veil_goggles.json b/src/main/resources/assets/watermelonmod/models/item/veil_goggles.json
+new file mode 100644
+index 0000000..a51c884
+--- /dev/null
++++ b/src/main/resources/assets/watermelonmod/models/item/veil_goggles.json
+@@ -0,0 +1,7 @@
++{
++  "parent": "watermelonmod:item/band_pass_goggles",
++  "textures": {
++    "particle": "watermelonmod:item/goggles/veil_goggles",
++    "tex": "watermelonmod:item/goggles/veil_goggles"
++  }
++}
+diff --git a/src/main/resources/assets/watermelonmod/shaders/fft/deconvolve.fsh b/src/main/resources/assets/watermelonmod/shaders/fft/deconvolve.fsh
+new file mode 100644
+index 0000000..0b55a33
+--- /dev/null
++++ b/src/main/resources/assets/watermelonmod/shaders/fft/deconvolve.fsh
+@@ -0,0 +1,72 @@
++#version 330
++
++uniform sampler2D InSampler;
++in vec2 texCoord;
++layout(std140) uniform SamplerInfo { vec2 OutSize; vec2 InSize; };
++layout(std140) uniform FftConfig { vec4 Params; };
++// Kernel = the wearer's estimate of the blur; Restore: x = mode (1 inverse,
++// 2 pseudo-inverse, 3 Wiener), y = pseudo-inverse threshold, z = Wiener K.
++layout(std140) uniform VeilConfig { vec4 Kernel; vec4 Restore; };
++out vec4 fragColor;
++
++// Caps the pure inverse filter so a zero of H can never produce inf/NaN,
++// which would spread through the inverse FFT to every pixel on screen.
++const float MAX_INVERSE_GAIN = 1000.0;
++
++const float PI = 3.141592653589793;
++// Blur sizes are given in reference pixels (a 1024-wide FFT); scale them to
++// this FFT so the blur looks the same at every quality level.
++float referenceScale() { return OutSize.x / 1024.0; }
++
++float sinc(float x) {
++    return abs(x) < 1.0e-4 ? 1.0 : sin(PI * x) / (PI * x);
++}
++
++// Bessel J1 (Numerical Recipes rational approximation); used for defocus blur.
++float besselJ1(float x) {
++    float ax = abs(x);
++    if (ax < 8.0) {
++        float y = x * x;
++        float a = x * (72362614232.0 + y * (-7895059235.0 + y * (242396853.1 + y * (-2972611.439 + y * (15704.48260 + y * (-30.16036606))))));
++        float b = 144725228442.0 + y * (2300535178.0 + y * (18583304.74 + y * (99447.43394 + y * (376.9991397 + y))));
++        return a / b;
++    }
++    float z = 8.0 / ax;
++    float y = z * z;
++    float xx = ax - 2.356194491;
++    float a = 1.0 + y * (0.183105e-2 + y * (-0.3516396496e-4 + y * (0.2457520174e-5 + y * (-0.240337019e-6))));
++    float b = 0.04687499995 + y * (-0.2002690873e-3 + y * (0.8449199096e-5 + y * (-0.88228987e-6 + y * 0.105787412e-6)));
++    float value = sqrt(0.636619772 / ax) * (cos(xx) * a - z * sin(xx) * b);
++    return x < 0.0 ? -value : value;
++}
++
++// Real, centred blur responses H(u, v); f is in cycles per FFT pixel and H(0) = 1.
++// kernel: x = type (0 Gaussian, 1 motion, 2 defocus), y = size, z = angle (radians).
++float blurResponse(vec4 kernel, vec2 f) {
++    int type = int(kernel.x + 0.5);
++    float size = max(kernel.y, 0.0) * referenceScale();
++    if (type == 0) return exp(-2.0 * PI * PI * size * size * dot(f, f));
++    if (type == 1) return sinc(size * dot(f, vec2(cos(kernel.z), sin(kernel.z))));
++    float r = PI * size * length(f);
++    return r < 1.0e-4 ? 1.0 : 2.0 * besselJ1(r) / r;
++}
++
++// Centred frequency of this texel; the DC term sits exactly at (0, 0).
++vec2 texelFrequency() {
++    return (floor(gl_FragCoord.xy) - 0.5 * OutSize) / OutSize;
++}
++
++void main() {
++    float h = blurResponse(Kernel, texelFrequency());
++    int mode = int(Restore.x + 0.5);
++    float gain = 1.0;
++    if (mode == 1) {
++        gain = sign(h) * min(1.0 / max(abs(h), 1.0e-6), MAX_INVERSE_GAIN);
++    } else if (mode == 2) {
++        gain = abs(h) > Restore.y ? 1.0 / h : 0.0;
++    } else if (mode == 3) {
++        gain = h / (h * h + max(Restore.z, 1.0e-6));
++    }
++    // Every H here is real, so the gain scales both packed complex values alike.
++    fragColor = gain * texelFetch(InSampler, ivec2(gl_FragCoord.xy), 0);
++}
+diff --git a/src/main/resources/assets/watermelonmod/shaders/fft/pack_b.fsh b/src/main/resources/assets/watermelonmod/shaders/fft/pack_b.fsh
+index 02e1161..734e0b1 100644
+--- a/src/main/resources/assets/watermelonmod/shaders/fft/pack_b.fsh
++++ b/src/main/resources/assets/watermelonmod/shaders/fft/pack_b.fsh
+@@ -3,7 +3,7 @@
+ uniform sampler2D InSampler;
+ in vec2 texCoord;
+ layout(std140) uniform SamplerInfo { vec2 OutSize; vec2 InSize; };
+-layout(std140) uniform FftConfig { vec4 Params; };
++layout(std140) uniform FftConfig { vec4 Params; }; // x = log2(width), y = log2(height)
+ out vec4 fragColor;
+ 
+ int bitReverse(int value, int bits) {
+@@ -14,7 +14,7 @@ int bitReverse(int value, int bits) {
+ 
+ void main() {
+     ivec2 outputPixel = ivec2(gl_FragCoord.xy);
+-    ivec2 inputPixel = ivec2(bitReverse(outputPixel.x, 10), bitReverse(outputPixel.y, 9));
++    ivec2 inputPixel = ivec2(bitReverse(outputPixel.x, int(Params.x)), bitReverse(outputPixel.y, int(Params.y)));
+     float blue = texelFetch(InSampler, clamp(inputPixel * ivec2(InSize) / ivec2(OutSize), ivec2(0), ivec2(InSize) - 1), 0).b;
+     float phase = ((inputPixel.x + inputPixel.y) & 1) == 0 ? 1.0 : -1.0;
+     fragColor = vec4(blue * phase, 0.0, 0.0, 1.0);
+diff --git a/src/main/resources/assets/watermelonmod/shaders/fft/pack_rg.fsh b/src/main/resources/assets/watermelonmod/shaders/fft/pack_rg.fsh
+index 2e1dc49..4699a4c 100644
+--- a/src/main/resources/assets/watermelonmod/shaders/fft/pack_rg.fsh
++++ b/src/main/resources/assets/watermelonmod/shaders/fft/pack_rg.fsh
+@@ -3,7 +3,7 @@
+ uniform sampler2D InSampler;
+ in vec2 texCoord;
+ layout(std140) uniform SamplerInfo { vec2 OutSize; vec2 InSize; };
+-layout(std140) uniform FftConfig { vec4 Params; };
++layout(std140) uniform FftConfig { vec4 Params; }; // x = log2(width), y = log2(height)
+ out vec4 fragColor;
+ 
+ int bitReverse(int value, int bits) {
+@@ -17,7 +17,7 @@ int bitReverse(int value, int bits) {
+ 
+ void main() {
+     ivec2 outputPixel = ivec2(gl_FragCoord.xy);
+-    ivec2 inputPixel = ivec2(bitReverse(outputPixel.x, 10), bitReverse(outputPixel.y, 9));
++    ivec2 inputPixel = ivec2(bitReverse(outputPixel.x, int(Params.x)), bitReverse(outputPixel.y, int(Params.y)));
+     vec3 color = texelFetch(InSampler, clamp(inputPixel * ivec2(InSize) / ivec2(OutSize), ivec2(0), ivec2(InSize) - 1), 0).rgb;
+     float phase = ((inputPixel.x + inputPixel.y) & 1) == 0 ? 1.0 : -1.0;
+     fragColor = vec4(color.r * phase, 0.0, color.g * phase, 0.0);
+diff --git a/src/main/resources/assets/watermelonmod/shaders/fft/reorder.fsh b/src/main/resources/assets/watermelonmod/shaders/fft/reorder.fsh
+index 51799ce..9bfc8b6 100644
+--- a/src/main/resources/assets/watermelonmod/shaders/fft/reorder.fsh
++++ b/src/main/resources/assets/watermelonmod/shaders/fft/reorder.fsh
+@@ -3,7 +3,7 @@
+ uniform sampler2D InSampler;
+ in vec2 texCoord;
+ layout(std140) uniform SamplerInfo { vec2 OutSize; vec2 InSize; };
+-layout(std140) uniform FftConfig { vec4 Params; };
++layout(std140) uniform FftConfig { vec4 Params; }; // x = log2(width), y = log2(height)
+ out vec4 fragColor;
+ 
+ int bitReverse(int value, int bits) {
+@@ -14,5 +14,5 @@ int bitReverse(int value, int bits) {
+ 
+ void main() {
+     ivec2 pixel = ivec2(gl_FragCoord.xy);
+-    fragColor = texelFetch(InSampler, ivec2(bitReverse(pixel.x, 10), bitReverse(pixel.y, 9)), 0);
++    fragColor = texelFetch(InSampler, ivec2(bitReverse(pixel.x, int(Params.x)), bitReverse(pixel.y, int(Params.y))), 0);
+ }
+diff --git a/src/main/resources/assets/watermelonmod/shaders/fft/spectrum.fsh b/src/main/resources/assets/watermelonmod/shaders/fft/spectrum.fsh
+index 5bf4136..74f7c9c 100644
+--- a/src/main/resources/assets/watermelonmod/shaders/fft/spectrum.fsh
++++ b/src/main/resources/assets/watermelonmod/shaders/fft/spectrum.fsh
+@@ -9,8 +9,10 @@ out vec4 fragColor;
+ 
+ void main() {
+     // The forward FFT is already shifted by (-1)^(x+y), so DC is centred.
+-    vec4 rg = texture(RGSampler, texCoord);
+-    vec4 blue = texture(BSampler, texCoord);
++    // Params.x > 1 zooms into the low frequencies around DC.
++    vec2 uv = 0.5 + (texCoord - 0.5) / max(Params.x, 1.0);
++    vec4 rg = texture(RGSampler, uv);
++    vec4 blue = texture(BSampler, uv);
+     float redMagnitude = length(rg.rg);
+     float greenMagnitude = length(rg.ba);
+     float blueMagnitude = length(blue.rg);
+@@ -18,7 +20,7 @@ void main() {
+     // A forward FFT is unnormalised; scale by N, then strongly compress its
+     // huge dynamic range. The gamma lift makes ordinary scene detail legible
+     // while preserving the ordering of actual coefficient magnitudes.
+-    float normalisedMagnitude = magnitude / float(1024 * 512);
++    float normalisedMagnitude = magnitude / (InSize.x * InSize.y);
+     const float displayGain = 65536.0;
+     float logMagnitude = log(1.0 + displayGain * normalisedMagnitude) / log(1.0 + displayGain);
+     float displayMagnitude = pow(clamp(logMagnitude, 0.0, 1.0), 0.45);
+diff --git a/src/main/resources/assets/watermelonmod/shaders/fft/spectrum_overlay.fsh b/src/main/resources/assets/watermelonmod/shaders/fft/spectrum_overlay.fsh
+index e7a4670..ea66744 100644
+--- a/src/main/resources/assets/watermelonmod/shaders/fft/spectrum_overlay.fsh
++++ b/src/main/resources/assets/watermelonmod/shaders/fft/spectrum_overlay.fsh
+@@ -7,10 +7,11 @@ layout(std140) uniform FftConfig { vec4 Params; }; // x = overlay opacity
+ out vec4 fragColor;
+ 
+ void main() {
+-    // Preserve the captured 256x128 (2:1) texture aspect ratio in screen
+-    // pixels. screenquad UV has y=0 at the bottom, hence this is top-right.
+-    const float panelHeight = 0.22;
+-    float panelWidth = panelHeight * 2.0 * OutSize.y / OutSize.x;
++    // A square panel keeps both frequency axes (-0.5..0.5 cycles/pixel) at the
++    // same scale, so stripe angles and spacings read true. screenquad UV has
++    // y=0 at the bottom, hence this is top-right.
++    const float panelHeight = 0.30;
++    float panelWidth = panelHeight * OutSize.y / OutSize.x;
+     vec2 panelSize = vec2(panelWidth, panelHeight);
+     vec2 panelOrigin = vec2(0.97 - panelWidth, 0.74);
+     vec2 panelUv = (texCoord - panelOrigin) / panelSize;
+diff --git a/src/main/resources/assets/watermelonmod/shaders/fft/unpack.fsh b/src/main/resources/assets/watermelonmod/shaders/fft/unpack.fsh
+index d353cd9..24f66a1 100644
+--- a/src/main/resources/assets/watermelonmod/shaders/fft/unpack.fsh
++++ b/src/main/resources/assets/watermelonmod/shaders/fft/unpack.fsh
+@@ -12,6 +12,6 @@ void main() {
+     vec4 rg = texelFetch(RGSampler, pixel, 0);
+     float blue = texelFetch(BSampler, pixel, 0).r;
+     float phase = ((pixel.x + pixel.y) & 1) == 0 ? 1.0 : -1.0;
+-    vec3 rgb = phase * vec3(rg.r, rg.b, blue) / float(1024 * 512);
++    vec3 rgb = phase * vec3(rg.r, rg.b, blue) / (OutSize.x * OutSize.y);
+     fragColor = vec4(clamp(rgb, 0.0, 1.0), 1.0);
+ }
+diff --git a/src/main/resources/assets/watermelonmod/shaders/fft/veil_degrade.fsh b/src/main/resources/assets/watermelonmod/shaders/fft/veil_degrade.fsh
+new file mode 100644
+index 0000000..94e9a77
+--- /dev/null
++++ b/src/main/resources/assets/watermelonmod/shaders/fft/veil_degrade.fsh
+@@ -0,0 +1,81 @@
++#version 330
++
++uniform sampler2D InSampler;
++in vec2 texCoord;
++layout(std140) uniform SamplerInfo { vec2 OutSize; vec2 InSize; };
++layout(std140) uniform FftConfig { vec4 Params; }; // x = texture index (noise salt)
++layout(std140) uniform VeilConfig { vec4 Kernel; vec4 Restore; }; // Kernel.w = noise sigma
++out vec4 fragColor;
++
++const float PI = 3.141592653589793;
++// Blur sizes are given in reference pixels (a 1024-wide FFT); scale them to
++// this FFT so the blur looks the same at every quality level.
++float referenceScale() { return OutSize.x / 1024.0; }
++
++float sinc(float x) {
++    return abs(x) < 1.0e-4 ? 1.0 : sin(PI * x) / (PI * x);
++}
++
++// Bessel J1 (Numerical Recipes rational approximation); used for defocus blur.
++float besselJ1(float x) {
++    float ax = abs(x);
++    if (ax < 8.0) {
++        float y = x * x;
++        float a = x * (72362614232.0 + y * (-7895059235.0 + y * (242396853.1 + y * (-2972611.439 + y * (15704.48260 + y * (-30.16036606))))));
++        float b = 144725228442.0 + y * (2300535178.0 + y * (18583304.74 + y * (99447.43394 + y * (376.9991397 + y))));
++        return a / b;
++    }
++    float z = 8.0 / ax;
++    float y = z * z;
++    float xx = ax - 2.356194491;
++    float a = 1.0 + y * (0.183105e-2 + y * (-0.3516396496e-4 + y * (0.2457520174e-5 + y * (-0.240337019e-6))));
++    float b = 0.04687499995 + y * (-0.2002690873e-3 + y * (0.8449199096e-5 + y * (-0.88228987e-6 + y * 0.105787412e-6)));
++    float value = sqrt(0.636619772 / ax) * (cos(xx) * a - z * sin(xx) * b);
++    return x < 0.0 ? -value : value;
++}
++
++// Real, centred blur responses H(u, v); f is in cycles per FFT pixel and H(0) = 1.
++// kernel: x = type (0 Gaussian, 1 motion, 2 defocus), y = size, z = angle (radians).
++float blurResponse(vec4 kernel, vec2 f) {
++    int type = int(kernel.x + 0.5);
++    float size = max(kernel.y, 0.0) * referenceScale();
++    if (type == 0) return exp(-2.0 * PI * PI * size * size * dot(f, f));
++    if (type == 1) return sinc(size * dot(f, vec2(cos(kernel.z), sin(kernel.z))));
++    float r = PI * size * length(f);
++    return r < 1.0e-4 ? 1.0 : 2.0 * besselJ1(r) / r;
++}
++
++// Centred frequency of this texel; the DC term sits exactly at (0, 0).
++vec2 texelFrequency() {
++    return (floor(gl_FragCoord.xy) - 0.5 * OutSize) / OutSize;
++}
++
++uint hash(uint x) {
++    x ^= x >> 16; x *= 0x7feb352du;
++    x ^= x >> 15; x *= 0x846ca68bu;
++    x ^= x >> 16;
++    return x;
++}
++
++float uniformNoise(uvec2 bin, uint salt) {
++    return float(hash(bin.x * 1973u ^ hash(bin.y * 9277u ^ salt)) >> 8) / 16777216.0;
++}
++
++// Two independent standard normal values (Box-Muller). The seed depends only on
++// the bin, so the noise is a fixed "dirty lens" pattern that never flickers.
++vec2 gaussianNoise(uvec2 bin, uint salt) {
++    float u1 = max(uniformNoise(bin, salt), 1.0e-7);
++    float u2 = uniformNoise(bin, salt + 101u);
++    return sqrt(-2.0 * log(u1)) * vec2(cos(2.0 * PI * u2), sin(2.0 * PI * u2));
++}
++
++// Degradation model G = H * F + N, applied to two packed complex spectra.
++void main() {
++    uvec2 bin = uvec2(gl_FragCoord.xy);
++    uint salt = uint(Params.x) * 7919u + 17u;
++    // Spatial noise sigma becomes sigma * sqrt(MN) per component of an unnormalised DFT bin.
++    float binSigma = Kernel.w * sqrt(OutSize.x * OutSize.y);
++    vec4 noise = binSigma * vec4(gaussianNoise(bin, salt), gaussianNoise(bin, salt + 31u));
++    vec4 spectrum = texelFetch(InSampler, ivec2(gl_FragCoord.xy), 0);
++    fragColor = blurResponse(Kernel, texelFrequency()) * spectrum + noise;
++}
+diff --git a/src/main/resources/assets/watermelonmod/textures/item/goggles/veil_goggles.png b/src/main/resources/assets/watermelonmod/textures/item/goggles/veil_goggles.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..f9e4f633938c0958d9a525e7b4e2e9aec976c6b1
+GIT binary patch
+literal 5430
+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
+
+literal 0
+HcmV?d00001
+

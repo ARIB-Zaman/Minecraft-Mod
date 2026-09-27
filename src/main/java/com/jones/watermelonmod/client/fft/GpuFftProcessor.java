@@ -2,7 +2,7 @@ package com.jones.watermelonmod.client.fft;
 
 import com.jones.watermelonmod.WatermelonMod;
 import com.jones.watermelonmod.client.veil.VeilClientState;
-import com.jones.watermelonmod.client.veil.VeilKernel;
+import com.jones.watermelonmod.veil.VeilKernel;
 import com.jones.watermelonmod.goggles.GogglesEquipment;
 import com.jones.watermelonmod.goggles.GogglesSettings;
 import com.jones.watermelonmod.goggles.GogglesSettingsService;

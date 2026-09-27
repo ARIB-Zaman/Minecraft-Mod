@@ -51,6 +51,18 @@ public final class VeilGogglesItem extends GogglesItem {
         return parameters;
     }
 
+    /** Sensible sneak+scroll increment for each parameter, so one notch feels like a deliberate step. */
+    public static float stepFor(String key) {
+        return switch (key) {
+            case KERNEL, MODE -> 1.0F;
+            case SIZE -> 2.0F;
+            case ANGLE -> 5.0F;
+            case EPSILON -> 0.02F;
+            case LOG_K -> 0.25F;
+            default -> 1.0F;
+        };
+    }
+
     /** Human-readable value for the workbench, with units instead of a percentage. */
     public static Component describe(String key, float value) {
         return switch (key) {
