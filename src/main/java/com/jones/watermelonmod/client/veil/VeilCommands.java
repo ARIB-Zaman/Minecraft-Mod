@@ -97,25 +97,10 @@ public final class VeilCommands {
         if (client.player == null) {
             return 0;
         }
-        Optional<ItemStack> goggles = GogglesEquipment.equippedGoggles(client.player)
-                .filter(stack -> stack.getItem() instanceof VeilGogglesItem);
-        if (goggles.isEmpty()) {
+        if (!VeilTrials.startRandomAngle(client.player, seconds)) {
             context.getSource().sendFeedback(Component.translatable("command.watermelonmod.veil.trial_needs_goggles"));
             return 0;
         }
-
-        ItemStack stack = goggles.get();
-        GogglesSettingsService.setParameter(stack, VeilGogglesItem.KERNEL, 1.0F);
-        GogglesSettingsService.setParameter(stack, VeilGogglesItem.SIZE, 40.0F);
-        GogglesSettingsService.setParameter(stack, VeilGogglesItem.MODE, 3.0F);
-        GogglesSettingsService.setParameter(stack, VeilGogglesItem.ANGLE, 0.0F);
-        // So scrolling still targets angle even after the trial's timer ends,
-        // instead of falling back to whatever V last left selected.
-        VeilTuningState.select(((GogglesItem) stack.getItem()).pipeline(), VeilGogglesItem.ANGLE);
-
-        float targetAngle = client.player.getRandom().nextInt(181);
-        VeilClientState.setDegradation(new VeilKernel(VeilKernel.Type.MOTION, 40.0F, targetAngle, 0.01F), VeilClientState.Source.TRIAL);
-        VeilTrialState.start(targetAngle, seconds);
         context.getSource().sendFeedback(Component.translatable("command.watermelonmod.veil.trial_start", seconds));
         return 1;
     }

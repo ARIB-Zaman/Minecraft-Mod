@@ -9,14 +9,21 @@ public final class VeilTrialState {
     private static boolean active;
     private static long endTimeMillis;
     private static float targetAngle;
+    private static boolean combatTriggered;
 
     private VeilTrialState() {
     }
 
-    public static void start(float targetAngle, int seconds) {
+    public static void start(float targetAngle, int seconds, boolean combatTriggered) {
         VeilTrialState.targetAngle = targetAngle;
+        VeilTrialState.combatTriggered = combatTriggered;
         endTimeMillis = System.currentTimeMillis() + seconds * 1000L;
         active = true;
+    }
+
+    /** Whether a real hit started this trial, as opposed to the standalone {@code /veil trial} test command. */
+    public static boolean isCombatTriggered() {
+        return combatTriggered;
     }
 
     public static boolean isActive() {

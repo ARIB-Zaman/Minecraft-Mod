@@ -12,6 +12,7 @@ import com.jones.watermelonmod.client.veil.VeilClientState;
 import com.jones.watermelonmod.client.veil.VeilCommands;
 import com.jones.watermelonmod.client.veil.VeilEmitterClientHandler;
 import com.jones.watermelonmod.client.veil.VeilTrialState;
+import com.jones.watermelonmod.client.veil.VeilTrials;
 import com.jones.watermelonmod.client.veil.VeilTuningState;
 import com.jones.watermelonmod.goggles.GogglesEquipment;
 import com.jones.watermelonmod.goggles.GogglesSettingsService;
@@ -23,11 +24,14 @@ import com.jones.watermelonmod.item.custom.EdgeDetectionGogglesItem;
 import com.jones.watermelonmod.item.custom.GreyscaleGogglesItem;
 import com.jones.watermelonmod.item.custom.SharpeningGogglesItem;
 import com.jones.watermelonmod.menu.ModMenus;
+import com.jones.watermelonmod.network.VeilBlindPayload;
+import com.jones.watermelonmod.network.VeilRecomposedPayload;
 import com.mojang.blaze3d.platform.InputConstants;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.KeyMapping;
@@ -59,6 +63,8 @@ public final class WatermelonModClient implements ClientModInitializer {
         EntityRendererRegistry.register(ModEntities.DAMAGE_BREEZE_PROJECTILE, ThrownItemRenderer::new);
         MenuScreens.register(ModMenus.WORKBENCH, WorkbenchScreen::new);
         VeilCommands.register();
+        ClientPlayNetworking.registerGlobalReceiver(VeilBlindPayload.TYPE, (payload, context) ->
+                VeilTrials.startRandomAngle(context.player(), payload.seconds(), true));
         GogglesPipelineRegistry.register(
                 GreyscaleGogglesItem.PIPELINE_ID,
                 new PostEffectGogglesPipeline(WatermelonMod.id("greyscale"))
@@ -118,6 +124,7 @@ public final class WatermelonModClient implements ClientModInitializer {
     }
 
     private static void evaluateVeilTrial(net.minecraft.client.Minecraft client) {
+        boolean combatTriggered = VeilTrialState.isCombatTriggered();
         VeilTrialState.stop();
         GogglesEquipment.equippedGoggles(client.player)
                 .filter(stack -> stack.getItem() instanceof VeilGogglesItem)
@@ -134,6 +141,9 @@ public final class WatermelonModClient implements ClientModInitializer {
                         client.player.sendSystemMessage(Component.translatable("message.watermelonmod.veil.trial_success",
                                 Math.round(target), Math.round(angularDistance)));
                         client.player.playSound(SoundEvents.PLAYER_LEVELUP, 1.0F, 1.5F);
+                        if (combatTriggered) {
+                            ClientPlayNetworking.send(new VeilRecomposedPayload(Math.round(angularDistance)));
+                        }
                     } else {
                         client.player.sendSystemMessage(Component.translatable("message.watermelonmod.veil.trial_fail",
                                 Math.round(target), Math.round(angularDistance)));
