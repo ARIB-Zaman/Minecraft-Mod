@@ -11,6 +11,7 @@ import com.jones.watermelonmod.client.sonar.SonarState;
 import com.jones.watermelonmod.client.veil.VeilClientState;
 import com.jones.watermelonmod.client.veil.VeilCommands;
 import com.jones.watermelonmod.client.veil.VeilEmitterClientHandler;
+import com.jones.watermelonmod.client.veil.VeilTrialHud;
 import com.jones.watermelonmod.client.veil.VeilTrialState;
 import com.jones.watermelonmod.client.veil.VeilTrials;
 import com.jones.watermelonmod.client.veil.VeilTuningState;
@@ -55,6 +56,9 @@ public final class WatermelonModClient implements ClientModInitializer {
     );
     /** How close (in degrees, accounting for the 180°-periodic symmetry of a motion blur's direction) counts as a pass. */
     private static final float TRIAL_TOLERANCE_DEGREES = 15.0F;
+    /** The widest possible angular distance (a motion blur's direction is 180°-periodic), used to scale the hot/cold beep. */
+    private static final float TRIAL_MAX_DISTANCE_DEGREES = 90.0F;
+    private static int veilBeepCooldownTicks;
 
     @Override
     public void onInitializeClient() {
@@ -84,6 +88,7 @@ public final class WatermelonModClient implements ClientModInitializer {
         KeyMappingHelper.registerKeyMapping(SONAR_PING_KEY);
         KeyMappingHelper.registerKeyMapping(VEIL_CYCLE_PARAMETER_KEY);
         HudElementRegistry.addLast(WatermelonMod.id("sonar_hud"), new SonarHud());
+        HudElementRegistry.addLast(WatermelonMod.id("veil_trial_hud"), new VeilTrialHud());
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             GogglesPostProcessingController.tick(client);
             VeilEmitterClientHandler.tick(client);
@@ -122,9 +127,21 @@ public final class WatermelonModClient implements ClientModInitializer {
                 .ifPresent(stack -> {
                     float currentAngle = GogglesSettingsService.get(stack).value(VeilGogglesItem.ANGLE, 0.0F);
                     client.player.sendOverlayMessage(Component.translatable("message.watermelonmod.veil.trial_countdown",
-                            String.format(Locale.ROOT, "%.1f", VeilTrialState.secondsRemaining()), Math.round(currentAngle),
-                            Math.round(VeilTrialState.distanceTo(currentAngle))));
+                            String.format(Locale.ROOT, "%.1f", VeilTrialState.secondsRemaining())));
+                    tickVeilBeep(client, VeilTrialState.distanceTo(currentAngle));
                 });
+    }
+
+    /** A Geiger-counter-style hot/cold cue: beeps faster and higher-pitched the closer the guess is. */
+    private static void tickVeilBeep(net.minecraft.client.Minecraft client, float distance) {
+        if (veilBeepCooldownTicks > 0) {
+            veilBeepCooldownTicks--;
+            return;
+        }
+        float closeness = 1.0F - Math.clamp(distance / TRIAL_MAX_DISTANCE_DEGREES, 0.0F, 1.0F);
+        float pitch = 0.6F + 1.4F * closeness;
+        veilBeepCooldownTicks = 2 + Math.round(8 * (1.0F - closeness));
+        client.player.playSound(SoundEvents.NOTE_BLOCK_HARP.value(), 0.6F, pitch);
     }
 
     private static void evaluateVeilTrial(net.minecraft.client.Minecraft client) {
@@ -141,6 +158,7 @@ public final class WatermelonModClient implements ClientModInitializer {
                     // exists once the trial ends, distorting an already-clear view.
                     GogglesSettingsService.setParameter(stack, VeilGogglesItem.MODE, VeilGogglesItem.MODE_OFF);
                     if (success) {
+                        GpuFftProcessor.beginSuccessFade();
                         VeilClientState.clear();
                         client.player.sendSystemMessage(Component.translatable("message.watermelonmod.veil.trial_success",
                                 Math.round(target), Math.round(angularDistance)));

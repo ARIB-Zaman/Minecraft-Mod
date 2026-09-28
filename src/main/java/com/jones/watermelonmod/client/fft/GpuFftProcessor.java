@@ -36,8 +36,16 @@ public final class GpuFftProcessor {
     /** Automatic quality drops to LOW after this many client ticks (5 s) below the frame-rate floor. */
     private static final int LOW_FPS_FLOOR = 25;
     private static final int LOW_FPS_TICKS = 100;
+    /** How long a successful recompose takes to dissolve into the clear view, instead of cutting instantly. */
+    private static final int SUCCESS_FADE_TOTAL_TICKS = 10;
 
     private static boolean active;
+    private static int successFadeTicksRemaining;
+    private static VeilKernel fadeDegradation;
+    private static float[] fadeRestoreKernel = NO_RESTORE;
+    private static float[] fadeRestoreSettings = NO_RESTORE;
+    private static float fadeSpectrumOpacity;
+    private static float fadeSpectrumBand;
     private static FilterMode filterMode = FilterMode.NONE;
     private static float cutoff = 0.20F;
     private static float spectrumOpacity;
@@ -58,6 +66,20 @@ public final class GpuFftProcessor {
 
     /** Called on the client tick; the actual GPU work is done on render thread. */
     public static void tick(Minecraft client) {
+        if (successFadeTicksRemaining > 0) {
+            // Frozen on purpose: re-reading live goggles/VeilClientState here would
+            // show whatever comes next (usually nothing), breaking the dissolve.
+            successFadeTicksRemaining--;
+            float fadeProgress = successFadeTicksRemaining / (float) SUCCESS_FADE_TOTAL_TICKS;
+            degradation = fadeDegradation;
+            restoreKernel = fadeRestoreKernel;
+            restoreSettings = fadeRestoreSettings;
+            spectrumOpacity = fadeSpectrumOpacity * fadeProgress;
+            spectrumBand = fadeSpectrumBand;
+            active = true;
+            return;
+        }
+
         filterMode = FilterMode.NONE;
         spectrumOpacity = 0.0F;
         spectrumBand = 0.0F;
@@ -72,6 +94,21 @@ public final class GpuFftProcessor {
         GogglesEquipment.equippedGoggles(client.player).ifPresent(GpuFftProcessor::readGoggles);
         active = degradation != null || filterMode != FilterMode.NONE || spectrumOpacity > 0.0F;
         guardFrameRate(client);
+    }
+
+    /**
+     * Call the instant a Veil recompose succeeds, before clearing the blur:
+     * freezes the current (already-correct) view and dissolves it toward the
+     * untouched scene over {@link #SUCCESS_FADE_TOTAL_TICKS} ticks, instead of
+     * the view snapping to normal in a single frame.
+     */
+    public static void beginSuccessFade() {
+        fadeDegradation = degradation;
+        fadeRestoreKernel = restoreKernel;
+        fadeRestoreSettings = restoreSettings;
+        fadeSpectrumOpacity = spectrumOpacity;
+        fadeSpectrumBand = spectrumBand;
+        successFadeTicksRemaining = SUCCESS_FADE_TOTAL_TICKS;
     }
 
     public static void setQuality(FftQuality requested) {
@@ -184,7 +221,10 @@ public final class GpuFftProcessor {
         blue = transform(blue, other(blue, targets.bA, targets.bB), targets.bA, targets.bB, true, bitsX, bitsY);
 
         passes.two("unpack", rg, blue, targets.reconstructed, 0, 0, 0, 0);
-        passes.one("composite", targets.reconstructed, mainTarget, 0, 0, 0, 0);
+        // While fading out, dissolve toward the untouched scene already sitting in
+        // mainTarget instead of always fully replacing it.
+        float compositeAlpha = successFadeTicksRemaining > 0 ? successFadeTicksRemaining / (float) SUCCESS_FADE_TOTAL_TICKS : 1.0F;
+        passes.one("composite", targets.reconstructed, mainTarget, compositeAlpha, 0, 0, 0);
         if (spectrumOpacity > 0.0F) passes.overlaySpectrum(targets.spectrum, mainTarget, spectrumOpacity);
     }
 

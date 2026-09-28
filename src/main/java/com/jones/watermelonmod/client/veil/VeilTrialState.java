@@ -17,6 +17,7 @@ public final class VeilTrialState {
 
     private static boolean active;
     private static long endTimeMillis;
+    private static float totalSeconds = 1.0F;
     private static float targetAngle;
     private static TriggerKind triggerKind = TriggerKind.MANUAL;
 
@@ -26,8 +27,14 @@ public final class VeilTrialState {
     public static void start(float targetAngle, int seconds, TriggerKind triggerKind) {
         VeilTrialState.targetAngle = targetAngle;
         VeilTrialState.triggerKind = triggerKind;
+        VeilTrialState.totalSeconds = Math.max(1, seconds);
         endTimeMillis = System.currentTimeMillis() + seconds * 1000L;
         active = true;
+    }
+
+    /** Fraction of the window still remaining, from 1.0 (just started) down to 0.0 (out of time). */
+    public static float fractionRemaining() {
+        return Math.clamp(secondsRemaining() / totalSeconds, 0.0F, 1.0F);
     }
 
     public static TriggerKind triggerKind() {

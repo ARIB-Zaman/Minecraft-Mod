@@ -38,7 +38,10 @@ final class FftFullscreenPasses {
         for (String name : new String[]{"veil_degrade", "deconvolve"}) {
             oneInput.put(name, create(name, false, GpuFormat.RGBA32_FLOAT, true));
         }
-        oneInput.put("composite", create("composite", false, GpuFormat.RGBA8_UNORM, false));
+        // Translucent, not opaque: at opacity 1 it's visually identical to a plain
+        // overwrite, but it also lets the success fade blend smoothly toward the
+        // untouched scene instead of switching off in a single frame.
+        oneInput.put("composite", createOverlay("composite"));
         oneInput.put("spectrum_overlay", createOverlay("spectrum_overlay"));
         twoInput.put("unpack", create("unpack", true, GpuFormat.RGBA8_UNORM, false));
         twoInput.put("spectrum", create("spectrum", true, GpuFormat.RGBA8_UNORM, false));
