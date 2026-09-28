@@ -3,7 +3,7 @@
 uniform sampler2D InSampler;
 in vec2 texCoord;
 layout(std140) uniform SamplerInfo { vec2 OutSize; vec2 InSize; };
-layout(std140) uniform FftConfig { vec4 Params; };
+layout(std140) uniform FftConfig { vec4 Params; }; // x = log2(width), y = log2(height)
 out vec4 fragColor;
 
 int bitReverse(int value, int bits) {
@@ -17,7 +17,7 @@ int bitReverse(int value, int bits) {
 
 void main() {
     ivec2 outputPixel = ivec2(gl_FragCoord.xy);
-    ivec2 inputPixel = ivec2(bitReverse(outputPixel.x, 10), bitReverse(outputPixel.y, 9));
+    ivec2 inputPixel = ivec2(bitReverse(outputPixel.x, int(Params.x)), bitReverse(outputPixel.y, int(Params.y)));
     vec3 color = texelFetch(InSampler, clamp(inputPixel * ivec2(InSize) / ivec2(OutSize), ivec2(0), ivec2(InSize) - 1), 0).rgb;
     float phase = ((inputPixel.x + inputPixel.y) & 1) == 0 ? 1.0 : -1.0;
     fragColor = vec4(color.r * phase, 0.0, color.g * phase, 0.0);

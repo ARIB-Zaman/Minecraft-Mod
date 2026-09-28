@@ -10,7 +10,8 @@
 		"client.KeyboardHandlerEchoFunnelMixin",
 		"client.GameRendererInvoker",
 		"client.GameRendererFftMixin",
-		"client.PostPassMixin"
+		"client.PostPassMixin",
+		"client.MouseHandlerVeilMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

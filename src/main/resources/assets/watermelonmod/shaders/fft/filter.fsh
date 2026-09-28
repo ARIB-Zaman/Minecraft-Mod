@@ -3,7 +3,7 @@
 uniform sampler2D InSampler;
 in vec2 texCoord;
 layout(std140) uniform SamplerInfo { vec2 OutSize; vec2 InSize; };
-layout(std140) uniform FftConfig { vec4 Params; }; // x = cutoff (0.01 to 1.0)
+layout(std140) uniform FftConfig { vec4 Params; }; // x = cutoff (0.01 to 1.0), y = invert (high-pass when > 0.5)
 out vec4 fragColor;
 
 void main() {
@@ -11,5 +11,6 @@ void main() {
     float radius = length(frequency);
     float cutoff = max(Params.x, 0.01);
     float response = exp(-0.5 * pow(radius / cutoff, 2.0));
+    if (Params.y > 0.5) response = 1.0 - response;
     fragColor = texelFetch(InSampler, ivec2(gl_FragCoord.xy), 0) * response;
 }

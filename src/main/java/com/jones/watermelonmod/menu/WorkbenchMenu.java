@@ -28,7 +28,9 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
     private static final int PLAYER_SLOT_START = 1;
     private static final int PLAYER_SLOT_END = 37;
     private final Container workbench;
-    private final DataSlot[] sliderPercents = {DataSlot.standalone(), DataSlot.standalone(), DataSlot.standalone()};
+    /** Up to six pipeline parameters; the screen shows them three per page. */
+    public static final int SLIDER_COUNT = 6;
+    private final DataSlot[] sliderPercents = createSliderSlots();
 
     public WorkbenchMenu(int containerId, Inventory inventory) {
         this(containerId, inventory, new SimpleContainer(1));
@@ -51,6 +53,12 @@ public final class WorkbenchMenu extends AbstractContainerMenu {
         addStandardInventorySlots(inventory, 34, 142);
         for (DataSlot sliderPercent : sliderPercents) addDataSlot(sliderPercent);
         refreshSliderFromStack();
+    }
+
+    private static DataSlot[] createSliderSlots() {
+        DataSlot[] slots = new DataSlot[SLIDER_COUNT];
+        for (int index = 0; index < slots.length; index++) slots[index] = DataSlot.standalone();
+        return slots;
     }
 
     public int sliderPercent() { return sliderPercent(0); }

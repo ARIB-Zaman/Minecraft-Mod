@@ -23,6 +23,8 @@ public class ModModelProvider extends FabricModelProvider {
     @Override
     public void generateItemModels(ItemModelGenerators itemModelGenerators) {
         itemModelGenerators.generateFlatItem(ModItems.FirstItem, ModelTemplates.FLAT_ITEM);
-        // Goggles use authored 3D item models under assets/watermelonmod.
+        // Most goggles use authored 3D item models under assets/watermelonmod; only
+        // items without one yet fall back to a generated flat icon.
+        itemModelGenerators.generateFlatItem(ModItems.HIGH_PASS_GOGGLES, ModelTemplates.FLAT_ITEM);
     }
 }

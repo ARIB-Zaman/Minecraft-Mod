@@ -9,6 +9,7 @@ import com.jones.watermelonmod.item.ModSpawnEggItems;
 import com.jones.watermelonmod.entity.ModEntities;
 import com.jones.watermelonmod.entity.RadiationWardenEntity;
 import com.jones.watermelonmod.network.EchoFunnelNetworking;
+import com.jones.watermelonmod.network.GogglesNetworking;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.fabricmc.api.ModInitializer;
 
@@ -33,6 +34,7 @@ public class WatermelonMod implements ModInitializer {
 
 		ModDataComponents.initialize();
 		EchoFunnelNetworking.initialize();
+		GogglesNetworking.initialize();
 		ModEntities.initialize();
 		FabricDefaultAttributeRegistry.register(ModEntities.RADIATION_WARDEN, RadiationWardenEntity.createAttributes());
 		ModSpawnEggItems.initialize();

@@ -18,6 +18,11 @@ public final class ModBlockEntities {
             WatermelonMod.id("radiation_shrieker"),
             new BlockEntityType<>(RadiationShriekerBlockEntity::new, java.util.Set.of(ModBlocks.RADIATION_SHRIEKER))
     );
+    public static final BlockEntityType<VeilEmitterBlockEntity> VEIL_EMITTER = Registry.register(
+            BuiltInRegistries.BLOCK_ENTITY_TYPE,
+            WatermelonMod.id("veil_emitter"),
+            new BlockEntityType<>(VeilEmitterBlockEntity::new, java.util.Set.of(ModBlocks.VEIL_EMITTER))
+    );
 
     private ModBlockEntities() { }
 

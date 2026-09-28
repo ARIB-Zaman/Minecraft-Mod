@@ -28,18 +28,48 @@ final class FftFullscreenPasses {
     private final Map<String, RenderPipeline> twoInput = new HashMap<>();
     private final GpuBuffer samplerInfo;
     private final GpuBuffer config;
-    private final ByteBuffer data = ByteBuffer.allocateDirect(4 * Float.BYTES).order(ByteOrder.nativeOrder());
+    private final GpuBuffer veilConfig;
+    private final ByteBuffer data = ByteBuffer.allocateDirect(8 * Float.BYTES).order(ByteOrder.nativeOrder());
 
     FftFullscreenPasses() {
         for (String name : new String[]{"pack_rg", "pack_b", "butterfly", "filter", "band_pass", "reorder"}) {
-            oneInput.put(name, create(name, false, GpuFormat.RGBA32_FLOAT));
+            oneInput.put(name, create(name, false, GpuFormat.RGBA32_FLOAT, false));
         }
-        oneInput.put("composite", create("composite", false, GpuFormat.RGBA8_UNORM));
+        for (String name : new String[]{"veil_degrade", "deconvolve"}) {
+            oneInput.put(name, create(name, false, GpuFormat.RGBA32_FLOAT, true));
+        }
+        oneInput.put("composite", create("composite", false, GpuFormat.RGBA8_UNORM, false));
         oneInput.put("spectrum_overlay", createOverlay("spectrum_overlay"));
-        twoInput.put("unpack", create("unpack", true, GpuFormat.RGBA8_UNORM));
-        twoInput.put("spectrum", create("spectrum", true, GpuFormat.RGBA8_UNORM));
+        twoInput.put("unpack", create("unpack", true, GpuFormat.RGBA8_UNORM, false));
+        twoInput.put("spectrum", create("spectrum", true, GpuFormat.RGBA8_UNORM, false));
         samplerInfo = buffer("FFT sampler info");
         config = buffer("FFT config");
+        veilConfig = RenderSystem.getDevice().createBuffer(() -> "watermelonmod Veil config",
+                GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, 8 * Float.BYTES);
+    }
+
+    /** Runs a Veil shader with a blur kernel and restoration settings (the {@code VeilConfig} block). */
+    RenderTarget veil(String shader, RenderTarget input, RenderTarget output, float textureIndex, float[] kernel, float[] restore) {
+        upload(samplerInfo, output.width, output.height, input.width, input.height);
+        upload(config, textureIndex, 0, 0, 0);
+        data.clear();
+        for (float value : kernel) data.putFloat(value);
+        for (float value : restore) data.putFloat(value);
+        data.flip();
+        RenderSystem.getDevice().createCommandEncoder().writeToBuffer(veilConfig.slice(), data);
+        try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder().createRenderPass(
+                () -> "watermelonmod Veil " + shader,
+                output.getColorTextureView(), Optional.empty(),
+                output.useDepth ? output.getDepthTextureView() : null, OptionalDouble.empty())) {
+            pass.setPipeline(oneInput.get(shader));
+            RenderSystem.bindDefaultUniforms(pass);
+            pass.setUniform("SamplerInfo", samplerInfo);
+            pass.setUniform("FftConfig", config);
+            pass.setUniform("VeilConfig", veilConfig);
+            pass.bindTexture("InSampler", input.getColorTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+            pass.draw(3, 1, 0, 0);
+        }
+        return output;
     }
 
     RenderTarget one(String shader, RenderTarget input, RenderTarget output, float x, float y, float z, float w) {
@@ -76,9 +106,9 @@ final class FftFullscreenPasses {
         }
     }
 
-    /** Converts packed RGB complex coefficients into a persistent display-sized spectrum. */
-    void captureSpectrum(RenderTarget rgSpectrum, RenderTarget blueSpectrum, RenderTarget spectrumOutput) {
-        two("spectrum", rgSpectrum, blueSpectrum, spectrumOutput, 0, 0, 0, 0);
+    /** Converts packed RGB complex coefficients into a persistent display-sized spectrum; zoom > 1 magnifies around DC. */
+    void captureSpectrum(RenderTarget rgSpectrum, RenderTarget blueSpectrum, RenderTarget spectrumOutput, float zoom) {
+        two("spectrum", rgSpectrum, blueSpectrum, spectrumOutput, zoom, 0, 0, 0);
     }
 
     /** Alpha-blends a captured spectrum into a corner of the already-composited scene. */
@@ -86,7 +116,7 @@ final class FftFullscreenPasses {
         one("spectrum_overlay", spectrumInput, sceneOutput, opacity, 0, 0, 0);
     }
 
-    private static RenderPipeline create(String shader, boolean twoInputs, GpuFormat outputFormat) {
+    private static RenderPipeline create(String shader, boolean twoInputs, GpuFormat outputFormat, boolean veilUniform) {
         BindGroupLayout.Builder bindings = BindGroupLayout.builder();
         if (twoInputs) {
             bindings.withSampler("RGSampler").withSampler("BSampler");
@@ -94,6 +124,9 @@ final class FftFullscreenPasses {
             bindings.withSampler("InSampler");
         }
         bindings.withUniform("SamplerInfo", UniformType.UNIFORM_BUFFER).withUniform("FftConfig", UniformType.UNIFORM_BUFFER);
+        if (veilUniform) {
+            bindings.withUniform("VeilConfig", UniformType.UNIFORM_BUFFER);
+        }
         RenderPipeline pipeline = RenderPipeline.builder(RenderPipelines.POST_PROCESSING_SNIPPET)
                 .withVertexShader(Identifier.withDefaultNamespace("core/screenquad"))
                 .withFragmentShader(WatermelonMod.id("fft/" + shader))

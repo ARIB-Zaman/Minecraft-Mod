@@ -4,7 +4,10 @@
   "item.watermelonmod.edge_detection_goggles" : "Edge Detection Goggles",
   "item.watermelonmod.sharpening_goggles" : "Sharpening Goggles",
   "item.watermelonmod.frequency_filter_goggles" : "Frequency Filter Goggles",
+  "item.watermelonmod.high_pass_goggles" : "High-pass Filter Goggles",
   "item.watermelonmod.band_pass_goggles" : "Band-pass Filter Goggles",
+  "item.watermelonmod.sonar_goggles" : "Sonar Goggles",
+  "key.watermelonmod.sonar_ping" : "Sonar Ping",
   "item.watermelonmod.echo_funnel" : "Echo Funnel",
   "item.watermelonmod.silence_breeze" : "Silence Breeze",
   "item.watermelonmod.freeze_breeze" : "Freeze Breeze",
@@ -16,12 +19,14 @@
   "block.watermelonmod.first_block" : "First custom block",
   "block.watermelonmod.workbench" : "Goggles Workbench",
   "block.watermelonmod.radiation_shrieker" : "Radiation Shrieker",
+  "block.watermelonmod.veil_emitter" : "Veil Emitter",
   "container.watermelonmod.workbench" : "Goggles Workbench",
   "gui.watermelonmod.workbench.insert_goggles" : "Insert goggles to configure them",
   "gui.watermelonmod.workbench.greyscale" : "Greyscale intensity",
   "gui.watermelonmod.workbench.edge_kernel" : "Sobel convolution kernel",
   "gui.watermelonmod.workbench.sharpen_kernel" : "Sharpening convolution kernel",
   "gui.watermelonmod.workbench.frequency_cutoff" : "FFT low-pass cutoff",
+  "gui.watermelonmod.workbench.high_pass_cutoff" : "FFT high-pass cutoff",
   "gui.watermelonmod.workbench.spectrum_opacity" : "Spectrum overlay opacity",
   "gui.watermelonmod.workbench.band_low_cutoff" : "Band-pass low cutoff",
   "gui.watermelonmod.workbench.band_high_cutoff" : "Band-pass high cutoff",
@@ -40,4 +45,32 @@
   ,"message.watermelonmod.echo_funnel.banked" : "Signal frequencies banked"
   ,"message.watermelonmod.echo_funnel.insufficient_points" : "Not enough bank points"
   ,"message.watermelonmod.echo_funnel.redeemed" : "Echo Funnel item redeemed"
+  ,"item.watermelonmod.veil_goggles" : "Veil Goggles"
+  ,"gui.watermelonmod.workbench.page" : "Page %s/%s"
+  ,"gui.watermelonmod.workbench.veil.kernel" : "Blur type"
+  ,"gui.watermelonmod.workbench.veil.size" : "Blur size"
+  ,"gui.watermelonmod.workbench.veil.angle" : "Blur angle"
+  ,"gui.watermelonmod.workbench.veil.mode" : "Restoration"
+  ,"gui.watermelonmod.workbench.veil.epsilon" : "Threshold ε"
+  ,"gui.watermelonmod.workbench.veil.log_k" : "Wiener K"
+  ,"gui.watermelonmod.workbench.veil.kernel.gaussian" : "Gaussian"
+  ,"gui.watermelonmod.workbench.veil.kernel.motion" : "Motion"
+  ,"gui.watermelonmod.workbench.veil.kernel.defocus" : "Defocus"
+  ,"gui.watermelonmod.workbench.veil.mode.off" : "Off"
+  ,"gui.watermelonmod.workbench.veil.mode.inverse" : "Inverse"
+  ,"gui.watermelonmod.workbench.veil.mode.pseudo_inverse" : "Pseudo-inverse"
+  ,"gui.watermelonmod.workbench.veil.mode.wiener" : "Wiener"
+  ,"command.watermelonmod.veil.on" : "The Veil distorts your view"
+  ,"command.watermelonmod.veil.off" : "The Veil lifts"
+  ,"command.watermelonmod.veil.quality" : "FFT quality set to %sx%s"
+  ,"command.watermelonmod.veil.quality_auto" : "FFT quality set to automatic"
+  ,"message.watermelonmod.fft.quality_lowered" : "Low frame rate: FFT quality lowered to 512x256. Use /veil quality high to undo."
+  ,"message.watermelonmod.veil.tuning" : "%s: %s"
+  ,"message.watermelonmod.veil.selected" : "Selected: %s"
+  ,"key.watermelonmod.veil_cycle_parameter" : "Veil: Select Parameter"
+  ,"command.watermelonmod.veil.trial_needs_goggles" : "Wear Veil Goggles before starting a trial"
+  ,"command.watermelonmod.veil.trial_start" : "Trial started: %s seconds to find the angle"
+  ,"message.watermelonmod.veil.trial_countdown" : "Time: %ss | Angle: %s° | Distance: %s°"
+  ,"message.watermelonmod.veil.trial_success" : "Recomposed! (target was %s°, you were within %s°)"
+  ,"message.watermelonmod.veil.trial_fail" : "Too slow/off. Target was %s° (you were %s° away)"
 }
