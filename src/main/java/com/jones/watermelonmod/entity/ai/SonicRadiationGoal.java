@@ -3,6 +3,7 @@ package com.jones.watermelonmod.entity.ai;
 import com.jones.watermelonmod.attack.sonic.SonicRadiationAttackDefinition;
 import com.jones.watermelonmod.attack.sonic.SonicRadiationAttackExecutor;
 import com.jones.watermelonmod.entity.RadiationWardenEntity;
+import com.jones.watermelonmod.signal.SonicSignal;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -16,6 +17,7 @@ public final class SonicRadiationGoal extends Goal {
     private final SonicRadiationAttackDefinition definition;
     private final SonicRadiationAttackExecutor executor;
     private @Nullable LivingEntity target;
+    private @Nullable SonicSignal chargedSignal;
     private int ticksUntilFire;
     private long nextAvailableTick;
     private boolean fired;
@@ -50,7 +52,7 @@ public final class SonicRadiationGoal extends Goal {
         ticksUntilFire = definition.chargeTicks();
         fired = false;
         boss.getNavigation().stop();
-        executor.beginCharge(boss);
+        chargedSignal = executor.beginCharge(boss, definition);
     }
 
     @Override
@@ -58,8 +60,8 @@ public final class SonicRadiationGoal extends Goal {
         if (target == null) return;
         boss.getLookControl().setLookAt(target, 30.0F, 30.0F);
         if (--ticksUntilFire <= 0) {
-            if (boss.level() instanceof ServerLevel level) {
-                executor.fire(level, boss, target, definition);
+            if (boss.level() instanceof ServerLevel level && chargedSignal != null) {
+                executor.fire(level, boss, target, definition, chargedSignal);
             }
             fired = true;
         }
@@ -69,5 +71,6 @@ public final class SonicRadiationGoal extends Goal {
     public void stop() {
         nextAvailableTick = boss.tickCount + (fired ? definition.cooldownTicks() : 10);
         target = null;
+        chargedSignal = null;
     }
 }

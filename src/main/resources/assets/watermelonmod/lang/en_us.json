@@ -41,6 +41,8 @@
   ,"gui.watermelonmod.echo_funnel.frequency_detail" : "Bin %s | Bank %s | Amplitude %s"
   ,"gui.watermelonmod.echo_funnel.offer_detail" : "%s | Costs: %s / %s / %s / %s"
   ,"message.watermelonmod.echo_funnel.captured" : "Sonic Radiation captured"
+  ,"message.watermelonmod.echo_funnel.captured_beneficial" : "Beneficial signal absorbed! (+Speed)"
+  ,"message.watermelonmod.echo_funnel.captured_deadly" : "Deadly signal absorbed... (+Slowness)"
   ,"message.watermelonmod.echo_funnel.full" : "Echo Funnel signal slots are full"
   ,"message.watermelonmod.echo_funnel.banked" : "Signal frequencies banked"
   ,"message.watermelonmod.echo_funnel.insufficient_points" : "Not enough bank points"
