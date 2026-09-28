@@ -26,46 +26,30 @@ import java.util.Set;
  * Read-only signal viewer. Future server-backed DSP controls can be added
  * without changing the captured, discrete signal payload it displays.
  *
- * <p>Every layout number is derived from {@link #SCALE} so the whole panel
- * can be resized with one constant instead of drifting apart — rendering and
- * click hit-boxes below both read from the same derived values.</p>
+ * <p>The panel's size is computed in {@link #init()} from whatever screen
+ * space is actually available, not a fixed guess — a high GUI Scale setting
+ * or a small window both shrink the available space independently of the
+ * real pixel resolution, so a hardcoded size can never reliably fit. Every
+ * other offset is derived from that one computed scale, and rendering and
+ * click hit-boxes both read the same derived fields.</p>
  */
 @Environment(EnvType.CLIENT)
 public final class EchoFunnelScreen extends Screen {
     private static final Component TITLE = Component.translatable("gui.watermelonmod.echo_funnel.title");
 
-    /** Shrink (or grow) the whole panel from here; every offset below is derived from it. */
-    private static final float SCALE = 0.8F;
-    private static final int PANEL_WIDTH = Math.round(356 * SCALE);
-    private static final int PANEL_HEIGHT = Math.round(330 * SCALE);
-    private static final int MARGIN = Math.round(12 * SCALE);
+    /** The panel's size and every offset below at scale 1.0 — full size, if the screen has room for it. */
+    private static final int BASE_PANEL_WIDTH = 356;
+    private static final int BASE_PANEL_HEIGHT = 330;
+    /** Clear space to always leave around the panel. */
+    private static final int SCREEN_MARGIN = 16;
+    /** Never shrink past this, even on a tiny screen — the panel would stop being usable below it. */
+    private static final float MIN_SCALE = 0.45F;
 
-    private static final int CARD_GAP = Math.round(7 * SCALE);
-    private static final int CARD_WIDTH = (PANEL_WIDTH - 2 * MARGIN - (EchoFunnelCaptureStore.CAPACITY - 1) * CARD_GAP) / EchoFunnelCaptureStore.CAPACITY;
-    private static final int CARD_HEIGHT = Math.round(92 * SCALE);
-    private static final int CARDS_TOP = Math.round(44 * SCALE);
-    private static final int CAPTURE_LABEL_TOP = Math.round(26 * SCALE);
-
-    private static final int CHART_TOP = Math.round(154 * SCALE);
-    private static final int CHART_HEIGHT = Math.round(72 * SCALE);
-    private static final int CHART_LABEL_GAP = Math.round(13 * SCALE);
-
-    private static final int LOWER_TOP = Math.round(240 * SCALE);
-    private static final int LOWER_INNER_MARGIN = Math.round(14 * SCALE);
-    private static final int BANK_ROW_START = Math.round(247 * SCALE);
-    private static final int BANK_ROW_HEIGHT = Math.round(16 * SCALE);
-    private static final int BANK_LABEL_X = Math.round(20 * SCALE);
-    private static final int BANK_BAR_LEFT = Math.round(38 * SCALE);
-    private static final int BANK_BAR_RIGHT = Math.round(168 * SCALE);
-    private static final int BANK_BAR_FILL_WIDTH = BANK_BAR_RIGHT - BANK_BAR_LEFT - 2;
-    private static final int BANK_POINTS_LABEL_X = Math.round(129 * SCALE);
-
-    private static final int OFFER_GRID_LEFT = Math.round(184 * SCALE);
-    private static final int OFFER_GRID_TOP = Math.round(246 * SCALE);
-    private static final int OFFER_COL_WIDTH = Math.round(72 * SCALE);
-    private static final int OFFER_ROW_HEIGHT = Math.round(24 * SCALE);
-    private static final int OFFER_WIDTH = Math.round(66 * SCALE);
-    private static final int OFFER_HEIGHT = Math.round(20 * SCALE);
+    private int panelWidth, panelHeight, margin;
+    private int cardGap, cardWidth, cardHeight, cardsTop, captureLabelTop;
+    private int chartTop, chartHeight, chartLabelGap;
+    private int lowerTop, lowerInnerMargin, bankRowStart, bankRowHeight, bankLabelX, bankBarLeft, bankBarRight, bankBarFillWidth, bankPointsLabelX;
+    private int offerGridLeft, offerGridTop, offerColWidth, offerRowHeight, offerWidth, offerHeight;
 
     private int selectedSlot = -1;
     private int selectedOffer = -1;
@@ -85,33 +69,74 @@ public final class EchoFunnelScreen extends Screen {
     }
 
     @Override
+    protected void init() {
+        super.init();
+        float scale = Math.min(1.0F, Math.min(
+                (width - 2.0F * SCREEN_MARGIN) / BASE_PANEL_WIDTH,
+                (height - 2.0F * SCREEN_MARGIN) / BASE_PANEL_HEIGHT));
+        scale = Math.max(scale, MIN_SCALE);
+
+        panelWidth = Math.round(BASE_PANEL_WIDTH * scale);
+        panelHeight = Math.round(BASE_PANEL_HEIGHT * scale);
+        margin = Math.round(12 * scale);
+
+        cardGap = Math.round(7 * scale);
+        cardWidth = (panelWidth - 2 * margin - (EchoFunnelCaptureStore.CAPACITY - 1) * cardGap) / EchoFunnelCaptureStore.CAPACITY;
+        cardHeight = Math.round(92 * scale);
+        cardsTop = Math.round(44 * scale);
+        captureLabelTop = Math.round(26 * scale);
+
+        chartTop = Math.round(154 * scale);
+        chartHeight = Math.round(72 * scale);
+        chartLabelGap = Math.round(13 * scale);
+
+        lowerTop = Math.round(240 * scale);
+        lowerInnerMargin = Math.round(14 * scale);
+        bankRowStart = Math.round(247 * scale);
+        bankRowHeight = Math.round(16 * scale);
+        bankLabelX = Math.round(20 * scale);
+        bankBarLeft = Math.round(38 * scale);
+        bankBarRight = Math.round(168 * scale);
+        bankBarFillWidth = bankBarRight - bankBarLeft - 2;
+        bankPointsLabelX = Math.round(129 * scale);
+
+        offerGridLeft = Math.round(184 * scale);
+        offerGridTop = Math.round(246 * scale);
+        offerColWidth = Math.round(72 * scale);
+        offerRowHeight = Math.round(24 * scale);
+        offerWidth = Math.round(66 * scale);
+        offerHeight = Math.round(20 * scale);
+    }
+
+    @Override
     public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float tickDelta) {
         super.extractBackground(graphics, mouseX, mouseY, tickDelta);
         int left = panelLeft();
         int top = panelTop();
-        graphics.fill(left, top, left + PANEL_WIDTH, top + PANEL_HEIGHT, 0xFFC6C6C6);
-        graphics.fill(left + 2, top + 2, left + PANEL_WIDTH - 2, top + PANEL_HEIGHT - 2, 0xFF555555);
-        graphics.fill(left + 4, top + 4, left + PANEL_WIDTH - 4, top + PANEL_HEIGHT - 4, 0xFFC6C6C6);
-        graphics.text(font, TITLE, left + MARGIN, top + MARGIN, 0xFF303030, false);
-        graphics.text(font, Component.translatable("gui.watermelonmod.echo_funnel.capture_slots"), left + MARGIN, top + CAPTURE_LABEL_TOP, 0xFF404040, false);
+        graphics.fill(left, top, left + panelWidth, top + panelHeight, 0xFFC6C6C6);
+        graphics.fill(left + 2, top + 2, left + panelWidth - 2, top + panelHeight - 2, 0xFF555555);
+        graphics.fill(left + 4, top + 4, left + panelWidth - 4, top + panelHeight - 4, 0xFFC6C6C6);
+        graphics.text(font, TITLE, left + margin, top + margin, 0xFF303030, false);
+        graphics.text(font, Component.translatable("gui.watermelonmod.echo_funnel.capture_slots"), left + margin, top + captureLabelTop, 0xFF404040, false);
 
         List<SonicSignal> signals = capturedSignals();
         for (int slot = 0; slot < EchoFunnelCaptureStore.CAPACITY; slot++) {
-            renderSignalCard(graphics, slot, slot < signals.size() ? signals.get(slot) : null, left + MARGIN + slot * (CARD_WIDTH + CARD_GAP), top + CARDS_TOP);
+            renderSignalCard(graphics, slot, slot < signals.size() ? signals.get(slot) : null, left + margin + slot * (cardWidth + cardGap), top + cardsTop);
         }
 
         SonicSignal signal = selectedSignal();
-        int chartLeft = left + MARGIN;
-        int chartTop = top + CHART_TOP;
-        int chartWidth = PANEL_WIDTH - 2 * MARGIN;
-        graphics.text(font, Component.translatable("gui.watermelonmod.echo_funnel.spectrum"), chartLeft, chartTop - CHART_LABEL_GAP, 0xFF404040, false);
-        graphics.fill(chartLeft, chartTop, chartLeft + chartWidth, chartTop + CHART_HEIGHT, 0xFF202020);
-        graphics.fill(chartLeft + 1, chartTop + 1, chartLeft + chartWidth - 1, chartTop + CHART_HEIGHT - 1, 0xFF101010);
+        int chartLeft = left + margin;
+        int chartTopAbs = top + chartTop;
+        int chartWidth = panelWidth - 2 * margin;
+        graphics.text(font, Component.translatable("gui.watermelonmod.echo_funnel.spectrum"), chartLeft, chartTopAbs - chartLabelGap, 0xFF404040, false);
+        graphics.fill(chartLeft, chartTopAbs, chartLeft + chartWidth, chartTopAbs + chartHeight, 0xFF202020);
+        graphics.fill(chartLeft + 1, chartTopAbs + 1, chartLeft + chartWidth - 1, chartTopAbs + chartHeight - 1, 0xFF101010);
         if (signal == null) {
-            graphics.text(font, Component.translatable("gui.watermelonmod.echo_funnel.no_selection"), chartLeft + chartWidth / 2 - 40, chartTop + CHART_HEIGHT / 2 - 4, 0xFFBFBFBF, false);
+            Component none = Component.translatable("gui.watermelonmod.echo_funnel.no_selection");
+            graphics.text(font, none, chartLeft + (chartWidth - font.width(none)) / 2, chartTopAbs + chartHeight / 2 - 4, 0xFFBFBFBF, false);
         } else {
             CapturedSignal capture = selectedCapture();
-            renderSpectrum(graphics, signal, capture == null ? Set.of() : Set.copyOf(capture.bankedBins()), chartLeft + 2, chartTop + 2, chartWidth - 4, CHART_HEIGHT - 4);
+            renderSpectrum(graphics, signal, capture == null ? Set.of() : Set.copyOf(capture.bankedBins()), chartLeft + 2, chartTopAbs + 2, chartWidth - 4, chartHeight - 4);
             renderSpectrumTooltip(graphics, signal, mouseX, mouseY);
         }
 
@@ -119,37 +144,37 @@ public final class EchoFunnelScreen extends Screen {
     }
 
     private void renderLowerPanel(GuiGraphicsExtractor graphics, int left, int top, int mouseX, int mouseY) {
-        graphics.fill(left + MARGIN, top + LOWER_TOP, left + PANEL_WIDTH - MARGIN, top + PANEL_HEIGHT - MARGIN, 0xFF9A9A9A);
-        graphics.fill(left + LOWER_INNER_MARGIN, top + LOWER_TOP + 2, left + PANEL_WIDTH - LOWER_INNER_MARGIN, top + PANEL_HEIGHT - LOWER_INNER_MARGIN, 0xFFBEBEBE);
+        graphics.fill(left + margin, top + lowerTop, left + panelWidth - margin, top + panelHeight - margin, 0xFF9A9A9A);
+        graphics.fill(left + lowerInnerMargin, top + lowerTop + 2, left + panelWidth - lowerInnerMargin, top + panelHeight - lowerInnerMargin, 0xFFBEBEBE);
         EchoFunnelBankStore banks = currentBanks();
         RewardOffer selected = selectedOffer >= 0 ? RewardCatalog.OFFERS.get(selectedOffer) : null;
         for (int bank = 0; bank < EchoFunnelBankStore.BANK_COUNT; bank++) {
-            int y = top + BANK_ROW_START + bank * BANK_ROW_HEIGHT;
-            graphics.text(font, Component.literal("B" + (bank + 1)), left + BANK_LABEL_X, y + 2, 0xFF404040, false);
-            graphics.fill(left + BANK_BAR_LEFT, y, left + BANK_BAR_RIGHT, y + 10, 0xFF555555);
-            graphics.fill(left + BANK_BAR_LEFT + 1, y + 1, left + BANK_BAR_RIGHT - 1, y + 9, 0xFF242424);
-            int filled = (int) Math.round(BANK_BAR_FILL_WIDTH * Math.min(1.0, banks.fill(bank)));
-            graphics.fill(left + BANK_BAR_LEFT + 1, y + 1, left + BANK_BAR_LEFT + 1 + filled, y + 9, bankColor(bank));
+            int y = top + bankRowStart + bank * bankRowHeight;
+            graphics.text(font, Component.literal("B" + (bank + 1)), left + bankLabelX, y + 2, 0xFF404040, false);
+            graphics.fill(left + bankBarLeft, y, left + bankBarRight, y + 10, 0xFF555555);
+            graphics.fill(left + bankBarLeft + 1, y + 1, left + bankBarRight - 1, y + 9, 0xFF242424);
+            int filled = (int) Math.round(bankBarFillWidth * Math.min(1.0, banks.fill(bank)));
+            graphics.fill(left + bankBarLeft + 1, y + 1, left + bankBarLeft + 1 + filled, y + 9, bankColor(bank));
             if (selected != null) {
-                int costWidth = (int) Math.round(BANK_BAR_FILL_WIDTH * selected.bankCosts().get(bank) / (double) EchoFunnelBankStore.POINT_CAPACITY);
-                graphics.fill(left + BANK_BAR_LEFT + 1, y + 1, left + BANK_BAR_LEFT + 1 + costWidth, y + 9, 0x99B84242);
+                int costWidth = (int) Math.round(bankBarFillWidth * selected.bankCosts().get(bank) / (double) EchoFunnelBankStore.POINT_CAPACITY);
+                graphics.fill(left + bankBarLeft + 1, y + 1, left + bankBarLeft + 1 + costWidth, y + 9, 0x99B84242);
             }
-            graphics.text(font, Component.literal(banks.points(bank) + "/" + EchoFunnelBankStore.POINT_CAPACITY), left + BANK_POINTS_LABEL_X, y + 2, 0xFFFFFFFF, false);
+            graphics.text(font, Component.literal(banks.points(bank) + "/" + EchoFunnelBankStore.POINT_CAPACITY), left + bankPointsLabelX, y + 2, 0xFFFFFFFF, false);
         }
         for (int offer = 0; offer < RewardCatalog.OFFERS.size(); offer++) {
-            int x = left + OFFER_GRID_LEFT + (offer % 2) * OFFER_COL_WIDTH;
-            int y = top + OFFER_GRID_TOP + (offer / 2) * OFFER_ROW_HEIGHT;
+            int x = left + offerGridLeft + (offer % 2) * offerColWidth;
+            int y = top + offerGridTop + (offer / 2) * offerRowHeight;
             renderOfferSlot(graphics, offer, RewardCatalog.OFFERS.get(offer), x, y, mouseX, mouseY);
         }
     }
 
     private void renderOfferSlot(GuiGraphicsExtractor graphics, int offerIndex, RewardOffer offer, int x, int y, int mouseX, int mouseY) {
         int border = selectedOffer == offerIndex ? 0xFFFFD35A : 0xFF555555;
-        graphics.fill(x, y, x + OFFER_WIDTH, y + OFFER_HEIGHT, border);
-        graphics.fill(x + 1, y + 1, x + OFFER_WIDTH - 1, y + OFFER_HEIGHT - 1, 0xFF333333);
+        graphics.fill(x, y, x + offerWidth, y + offerHeight, border);
+        graphics.fill(x + 1, y + 1, x + offerWidth - 1, y + offerHeight - 1, 0xFF333333);
         graphics.fakeItem(offer.createStack(), x + 3, y + 2);
         graphics.itemDecorations(font, offer.createStack(), x + 3, y + 2);
-        if (mouseX >= x && mouseX < x + OFFER_WIDTH && mouseY >= y && mouseY < y + OFFER_HEIGHT) {
+        if (mouseX >= x && mouseX < x + offerWidth && mouseY >= y && mouseY < y + offerHeight) {
             graphics.setTooltipForNextFrame(Component.translatable("gui.watermelonmod.echo_funnel.offer_detail",
                     offer.createStack().getHoverName(), offer.bankCosts().get(0), offer.bankCosts().get(1), offer.bankCosts().get(2), offer.bankCosts().get(3)), mouseX, mouseY);
         }
@@ -158,10 +183,10 @@ public final class EchoFunnelScreen extends Screen {
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
         if (event.button() == 0) {
-            int top = panelTop() + CARDS_TOP;
+            int top = panelTop() + cardsTop;
             for (int slot = 0; slot < EchoFunnelCaptureStore.CAPACITY; slot++) {
-                int left = panelLeft() + MARGIN + slot * (CARD_WIDTH + CARD_GAP);
-                if (event.x() >= left && event.x() < left + CARD_WIDTH && event.y() >= top && event.y() < top + CARD_HEIGHT) {
+                int left = panelLeft() + margin + slot * (cardWidth + cardGap);
+                if (event.x() >= left && event.x() < left + cardWidth && event.y() >= top && event.y() < top + cardHeight) {
                     selectedSlot = slot < capturedSignals().size() && selectedSlot != slot ? slot : -1;
                     return true;
                 }
@@ -193,14 +218,15 @@ public final class EchoFunnelScreen extends Screen {
 
     private void renderSignalCard(GuiGraphicsExtractor graphics, int slot, SonicSignal signal, int left, int top) {
         int borderColor = selectedSlot == slot ? 0xFFFFD35A : 0xFF555555;
-        graphics.fill(left, top, left + CARD_WIDTH, top + CARD_HEIGHT, borderColor);
-        graphics.fill(left + 2, top + 2, left + CARD_WIDTH - 2, top + CARD_HEIGHT - 2, 0xFF202020);
+        graphics.fill(left, top, left + cardWidth, top + cardHeight, borderColor);
+        graphics.fill(left + 2, top + 2, left + cardWidth - 2, top + cardHeight - 2, 0xFF202020);
         graphics.text(font, Component.translatable("gui.watermelonmod.echo_funnel.slot", slot + 1), left + 7, top + 7, 0xFFBFBFBF, false);
         if (signal == null) {
-            graphics.text(font, Component.translatable("gui.watermelonmod.echo_funnel.empty"), left + CARD_WIDTH / 2 - 12, top + CARD_HEIGHT / 2 - 4, 0xFF8F8F8F, false);
+            Component empty = Component.translatable("gui.watermelonmod.echo_funnel.empty");
+            graphics.text(font, empty, left + (cardWidth - font.width(empty)) / 2, top + cardHeight / 2 - 4, 0xFF8F8F8F, false);
             return;
         }
-        renderPeriodicSignal(graphics, signal, left + 5, top + 20, CARD_WIDTH - 10, CARD_HEIGHT - 26);
+        renderPeriodicSignal(graphics, signal, left + 5, top + 20, cardWidth - 10, cardHeight - 26);
     }
 
     private List<SonicSignal> capturedSignals() {
@@ -236,11 +262,11 @@ public final class EchoFunnelScreen extends Screen {
     }
 
     private int panelLeft() {
-        return (width - PANEL_WIDTH) / 2;
+        return (width - panelWidth) / 2;
     }
 
     private int panelTop() {
-        return (height - PANEL_HEIGHT) / 2;
+        return (height - panelHeight) / 2;
     }
 
     private void renderPeriodicSignal(GuiGraphicsExtractor graphics, SonicSignal signal, int left, int top, int graphWidth, int graphHeight) {
@@ -286,10 +312,10 @@ public final class EchoFunnelScreen extends Screen {
     }
 
     private int spectrumBinAt(double mouseX, double mouseY) {
-        int left = panelLeft() + MARGIN;
-        int top = panelTop() + CHART_TOP;
-        int width = PANEL_WIDTH - 2 * MARGIN;
-        if (mouseX < left || mouseX >= left + width || mouseY < top || mouseY >= top + CHART_HEIGHT) {
+        int left = panelLeft() + margin;
+        int top = panelTop() + chartTop;
+        int width = panelWidth - 2 * margin;
+        if (mouseX < left || mouseX >= left + width || mouseY < top || mouseY >= top + chartHeight) {
             return -1;
         }
         int displayBin = Math.min(SonicSignal.FFT_SIZE - 1, (int) ((mouseX - left) * SonicSignal.FFT_SIZE / width));
@@ -302,9 +328,9 @@ public final class EchoFunnelScreen extends Screen {
 
     private int offerAt(double mouseX, double mouseY) {
         for (int offer = 0; offer < RewardCatalog.OFFERS.size(); offer++) {
-            int x = panelLeft() + OFFER_GRID_LEFT + (offer % 2) * OFFER_COL_WIDTH;
-            int y = panelTop() + OFFER_GRID_TOP + (offer / 2) * OFFER_ROW_HEIGHT;
-            if (mouseX >= x && mouseX < x + OFFER_WIDTH && mouseY >= y && mouseY < y + OFFER_HEIGHT) {
+            int x = panelLeft() + offerGridLeft + (offer % 2) * offerColWidth;
+            int y = panelTop() + offerGridTop + (offer / 2) * offerRowHeight;
+            if (mouseX >= x && mouseX < x + offerWidth && mouseY >= y && mouseY < y + offerHeight) {
                 return offer;
             }
         }
