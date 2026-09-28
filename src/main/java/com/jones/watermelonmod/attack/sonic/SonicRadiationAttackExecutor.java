@@ -35,7 +35,7 @@ public final class SonicRadiationAttackExecutor {
     }
 
     private static final DustParticleOptions BENEFICIAL_TELEGRAPH = new DustParticleOptions(0xFFD700, 1.5F);
-    private static final DustParticleOptions DEADLY_TELEGRAPH = new DustParticleOptions(0x39FF14, 1.5F);
+    private static final DustParticleOptions DEADLY_TELEGRAPH = new DustParticleOptions(0xFF2C2C, 1.5F);
 
     /**
      * Generates and classifies this beam's signal at the start of the charge —
@@ -47,6 +47,7 @@ public final class SonicRadiationAttackExecutor {
         SignalClassifier.Tier tier = SignalClassifier.classify(signal);
         boolean beneficial = tier == SignalClassifier.Tier.BENEFICIAL;
 
+        source.setChargeTelegraph(beneficial ? RadiationWardenEntity.TELEGRAPH_BENEFICIAL : RadiationWardenEntity.TELEGRAPH_DEADLY);
         source.triggerTendrilPulse();
         source.level().broadcastEntityEvent(source, (byte) 62);
         source.playSound(SoundEvents.WARDEN_SONIC_CHARGE, 3.0F, beneficial ? 1.4F : 0.7F);

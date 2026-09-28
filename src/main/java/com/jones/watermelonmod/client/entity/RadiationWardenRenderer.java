@@ -26,6 +26,8 @@ public final class RadiationWardenRenderer extends MobRenderer<RadiationWardenEn
     private static final Identifier FROZEN_RADIATION_WARDEN_TEXTURE = Identifier.fromNamespaceAndPath("watermelonmod", "textures/entity/radiation_warden/radiation_warden_freeze.png");
     private static final Identifier BIOLUMINESCENT_LAYER_TEXTURE = Identifier.fromNamespaceAndPath("watermelonmod", "textures/entity/radiation_warden/radiation_warden_bioluminescent_layer.png");
     private static final Identifier HEART_TEXTURE = Identifier.fromNamespaceAndPath("watermelonmod", "textures/entity/radiation_warden/radiation_warden_heart.png");
+    private static final Identifier HEART_TEXTURE_BENEFICIAL = Identifier.fromNamespaceAndPath("watermelonmod", "textures/entity/radiation_warden/radiation_warden_heart_yellow.png");
+    private static final Identifier HEART_TEXTURE_DEADLY = Identifier.fromNamespaceAndPath("watermelonmod", "textures/entity/radiation_warden/radiation_warden_heart_red.png");
     private static final Identifier PULSATING_SPOTS_TEXTURE_1 = Identifier.fromNamespaceAndPath("watermelonmod", "textures/entity/radiation_warden/radiation_warden_pulsating_spots_1.png");
     private static final Identifier PULSATING_SPOTS_TEXTURE_2 = Identifier.fromNamespaceAndPath("watermelonmod", "textures/entity/radiation_warden/radiation_warden_pulsating_spots_2.png");
 
@@ -45,7 +47,7 @@ public final class RadiationWardenRenderer extends MobRenderer<RadiationWardenEn
                 pulsatingSpotsModel);
         addWardenOverlay(state -> RADIATION_WARDEN_TEXTURE,
                 (state, ageInTicks) -> state.tendrilAnimation, tendrilsModel);
-        addWardenOverlay(state -> HEART_TEXTURE,
+        addWardenOverlay(RadiationWardenRenderer::heartTextureFor,
                 (state, ageInTicks) -> state.heartAnimation, heartModel);
     }
 
@@ -77,10 +79,20 @@ public final class RadiationWardenRenderer extends MobRenderer<RadiationWardenEn
         state.attackAnimationState.copyFrom(entity.attackAnimationState);
         state.sonicBoomAnimationState.copyFrom(entity.sonicBoomAnimationState);
         state.freezeBreezeFrozen = entity.isFreezeBreezeFrozen();
+        state.chargeTelegraph = entity.chargeTelegraph();
     }
 
     @Override
     public Identifier getTextureLocation(RadiationWardenRenderState state) {
         return state.freezeBreezeFrozen ? FROZEN_RADIATION_WARDEN_TEXTURE : RADIATION_WARDEN_TEXTURE;
+    }
+
+    /** Blue while idle, then yellow or red while charging, matching the beam it's about to fire. */
+    private static Identifier heartTextureFor(RadiationWardenRenderState state) {
+        return switch (state.chargeTelegraph) {
+            case RadiationWardenEntity.TELEGRAPH_BENEFICIAL -> HEART_TEXTURE_BENEFICIAL;
+            case RadiationWardenEntity.TELEGRAPH_DEADLY -> HEART_TEXTURE_DEADLY;
+            default -> HEART_TEXTURE;
+        };
     }
 }

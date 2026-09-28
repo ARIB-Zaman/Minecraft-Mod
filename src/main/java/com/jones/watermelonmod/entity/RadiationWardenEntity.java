@@ -47,6 +47,11 @@ import java.util.Optional;
  */
 public final class RadiationWardenEntity extends Monster {
     private static final EntityDataAccessor<Integer> FREEZE_BREEZE_TICKS = SynchedEntityData.defineId(RadiationWardenEntity.class, EntityDataSerializers.INT);
+    /** 0 = idle (blue heart), 1 = charging a beneficial signal (yellow), 2 = charging a deadly one (red). Purely cosmetic. */
+    private static final EntityDataAccessor<Integer> CHARGE_TELEGRAPH = SynchedEntityData.defineId(RadiationWardenEntity.class, EntityDataSerializers.INT);
+    public static final int TELEGRAPH_NONE = 0;
+    public static final int TELEGRAPH_BENEFICIAL = 1;
+    public static final int TELEGRAPH_DEADLY = 2;
     private BossState bossState = RadiationWardenProfile.initialState();
     private final BossCombatController combatController = new BossCombatController(RadiationWardenProfile.INITIAL);
     public final AnimationState sonicBoomAnimationState = new AnimationState();
@@ -153,6 +158,14 @@ public final class RadiationWardenEntity extends Monster {
         ServerPlayNetworking.send(target, new VeilConvergencePayload(CONVERGENCE_SECONDS, CONVERGENCE_SIZE));
     }
 
+    public int chargeTelegraph() {
+        return entityData.get(CHARGE_TELEGRAPH);
+    }
+
+    public void setChargeTelegraph(int telegraph) {
+        entityData.set(CHARGE_TELEGRAPH, telegraph);
+    }
+
     /** Starts the vanilla Warden-style emergence sequence after a shrieker summon. */
     public void beginEmergence() {
         emergenceTicks = 134;
@@ -172,6 +185,7 @@ public final class RadiationWardenEntity extends Monster {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(FREEZE_BREEZE_TICKS, 0);
+        builder.define(CHARGE_TELEGRAPH, TELEGRAPH_NONE);
     }
 
     @Override

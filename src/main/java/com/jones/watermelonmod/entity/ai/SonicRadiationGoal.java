@@ -72,5 +72,6 @@ public final class SonicRadiationGoal extends Goal {
         nextAvailableTick = boss.tickCount + (fired ? definition.cooldownTicks() : 10);
         target = null;
         chargedSignal = null;
+        boss.setChargeTelegraph(RadiationWardenEntity.TELEGRAPH_NONE);
     }
 }

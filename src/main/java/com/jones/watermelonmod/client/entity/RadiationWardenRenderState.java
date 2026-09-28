@@ -8,4 +8,6 @@ import net.minecraft.client.renderer.entity.state.WardenRenderState;
 @Environment(EnvType.CLIENT)
 public final class RadiationWardenRenderState extends WardenRenderState {
     public boolean freezeBreezeFrozen;
+    /** Mirrors {@code RadiationWardenEntity}'s TELEGRAPH_* constants; picks the heart glow's colour. */
+    public int chargeTelegraph;
 }
